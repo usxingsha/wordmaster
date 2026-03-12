@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="WordMaster">
+    <meta name="description" content="逐字母拼写训练应用 - 背单词神器">
+    
+    <title>WordMaster - 单词拼写训练</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiV29yZE1hc3RlciIsInNob3J0X25hbWUiOiLnvJbnoIHmkp7lj5YiLCJzdGFydF91cmwiOiIuIiwiZGlzcGxheSI6InN0YW5kYWxvbmUiLCJiYWNrZ3JvdW5kX2NvbG9yIjoiIzBmMTcyYSIsInRoZW1lX2NvbG9yIjoiIzBmMTcyYSIsImljb25zIjpbeyJzcmMiOiJkYXRhOmltYWdlL3N2Zyt4bWw7YmFzZTY0LFBIQStQZz09Iiwic2l6ZXMiOiIxOTJ4MTkyIiwidHlwZSI6ImltYWdlL3BuZyJ9XX0=">
+    
+    <!-- iOS Icons -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect fill='%236366f1' width='192' height='192' rx='40'/%3E%3Ctext x='96' y='130' font-family='Arial' font-size='100' fill='white' text-anchor='middle' font-weight='bold'%3EW%3C/text%3E%3C/svg%3E">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            user-select: none;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0f172a;
+            overflow-x: hidden;
+            overscroll-behavior-y: none;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .bg-gradient-animate {
+            background: linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #0f172a);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+        
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        .letter-slot {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.2);
+            touch-action: manipulation;
+        }
+        
+        .letter-slot:active {
+            transform: scale(0.95);
+        }
+        
+        .letter-slot:focus-within {
+            transform: translateY(-2px);
+            box-shadow: 0 0 0 2px #6366f1, 0 10px 25px -5px rgba(99, 102, 241, 0.4);
+        }
+        
+        .letter-slot.filled {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: #6366f1;
+        }
+        
+        .letter-slot.correct {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+        }
+        
+        .letter-slot.wrong {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .btn-press {
+            transition: transform 0.1s;
+        }
+        
+        .btn-press:active {
+            transform: scale(0.95);
+        }
+        
+        /* 安装提示 */
+        .install-prompt {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(200%);
+            background: rgba(30, 27, 75, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 16px 24px;
+            border-radius: 16px;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            z-index: 1000;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            max-width: 90%;
+            width: 360px;
+        }
+        
+        .install-prompt.show {
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        /* 自定义键盘 */
+        .virtual-keyboard {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding: 8px;
+            padding-bottom: max(8px, env(safe-area-inset-bottom));
+            z-index: 100;
+            transform: translateY(100%);
+            transition: transform 0.3s;
+        }
+        
+        .virtual-keyboard.show {
+            transform: translateY(0);
+        }
+        
+        .key-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: white;
+            border-radius: 8px;
+            height: 48px;
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+        
+        .key-btn:active {
+            background: rgba(99, 102, 241, 0.5);
+            transform: scale(0.95);
+        }
+        
+        .key-btn.special {
+            background: rgba(99, 102, 241, 0.3);
+            font-size: 14px;
+        }
+        
+        /* 滚动条隐藏 */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        
+        /* 安全区域适配 */
+        .safe-top {
+            padding-top: env(safe-area-inset-top);
+        }
+        
+        .safe-bottom {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        
+        /* 粒子效果 */
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            opacity: 0;
+            animation: floatUp 1s ease-out forwards;
+        }
+        
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-100px) scale(0); }
+        }
+        
+        /* 输入框光标 */
+        .cursor-blink {
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-animate text-white">
+
+    <!-- 主容器 -->
+    <div class="h-full flex flex-col safe-top safe-bottom">
+        
+        <!-- 头部 -->
+        <header class="flex justify-between items-center px-4 py-3 glass sticky top-0 z-50">
+            <div class="flex items-center gap-2">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xl font-bold shadow-lg">
+                    W
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold">WordMaster</h1>
+                    <p class="text-xs text-slate-400">单词拼写训练</p>
+                </div>
+            </div>
+            
+            <div class="flex gap-2">
+                <button onclick="app.toggleView('list')" class="btn-press p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                </button>
+                <button onclick="app.toggleView('add')" class="btn-press p-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/30">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- 内容区 -->
+        <main class="flex-1 overflow-y-auto px-4 py-4 pb-32" id="mainContent">
+            
+            <!-- 学习模式 -->
+            <div id="studyMode" class="space-y-6">
+                
+                <!-- 统计卡片 -->
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="glass rounded-2xl p-4 text-center">
+                        <div class="text-2xl font-bold text-indigo-400" id="totalWords">0</div>
+                        <div class="text-[10px] text-slate-400 uppercase">总单词</div>
+                    </div>
+                    <div class="glass rounded-2xl p-4 text-center">
+                        <div class="text-2xl font-bold text-emerald-400" id="masteredWords">0</div>
+                        <div class="text-[10px] text-slate-400 uppercase">已掌握</div>
+                    </div>
+                    <div class="glass rounded-2xl p-4 text-center">
+                        <div class="text-2xl font-bold text-amber-400" id="currentStreak">0</div>
+                        <div class="text-[10px] text-slate-400 uppercase">连击</div>
+                    </div>
+                </div>
+
+                <!-- 单词卡片 -->
+                <div class="glass rounded-3xl p-6 relative overflow-hidden min-h-[400px] flex flex-col justify-center">
+                    <div class="absolute top-0 right-0 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl -mr-24 -mt-24"></div>
+                    
+                    <div class="relative z-10 text-center space-y-6">
+                        
+                        <!-- 进度指示 -->
+                        <div class="flex justify-center items-center gap-2">
+                            <span class="px-3 py-1 rounded-full bg-white/5 text-xs text-slate-300">
+                                <span id="wordIndex">1</span> / <span id="totalCount">1</span>
+                            </span>
+                            <button onclick="app.speakCurrent()" class="p-2 rounded-full bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all btn-press">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                            </button>
+                        </div>
+
+                        <!-- 释义 -->
+                        <h2 id="wordDefinition" class="text-xl font-medium text-white leading-relaxed px-2">
+                            点击下方按钮开始练习
+                        </h2>
+
+                        <!-- 拼写区域 -->
+                        <div id="spellingArea" class="flex flex-wrap justify-center gap-2 min-h-[60px] items-center py-4" onclick="app.focusInput()">
+                            <!-- 动态生成 -->
+                        </div>
+
+                        <!-- 隐藏输入框 -->
+                        <input type="text" id="hiddenInput" class="absolute opacity-0 pointer-events-none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+
+                        <!-- 控制按钮 -->
+                        <div class="flex justify-center gap-3 pt-2">
+                            <button onclick="app.showHint()" class="btn-press px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-slate-300">
+                                提示
+                            </button>
+                            <button onclick="app.nextWord()" class="btn-press px-6 py-2 rounded-xl bg-indigo-600 text-sm font-bold shadow-lg shadow-indigo-600/30">
+                                下一个
+                            </button>
+                        </div>
+
+                        <!-- 反馈 -->
+                        <div id="feedback" class="h-6 text-sm font-medium transition-all opacity-0"></div>
+                    </div>
+                </div>
+
+                <!-- 操作提示 -->
+                <div class="text-center text-slate-500 text-xs">
+                    点击字母框或使用屏幕键盘输入
+                </div>
+            </div>
+
+            <!-- 添加模式 -->
+            <div id="addMode" class="hidden space-y-4">
+                <div class="glass rounded-3xl p-6 space-y-4">
+                    <h2 class="text-xl font-bold">添加新单词</h2>
+                    
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-400 mb-1 uppercase">英文单词</label>
+                            <input type="text" id="newWord" class="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-indigo-500 focus:outline-none text-white text-lg font-medium" placeholder="例如：hello">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-xs font-medium text-slate-400 mb-1 uppercase">中文释义</label>
+                            <input type="text" id="newDefinition" class="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-indigo-500 focus:outline-none text-white" placeholder="例如：你好">
+                        </div>
+                        
+                        <div class="flex gap-3 pt-2">
+                            <button onclick="app.toggleView('study')" class="flex-1 btn-press py-3 rounded-xl bg-white/5 border border-white/10 text-sm font-medium">
+                                取消
+                            </button>
+                            <button onclick="app.addWord()" class="flex-1 btn-press py-3 rounded-xl bg-indigo-600 text-sm font-bold shadow-lg">
+                                添加
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 批量添加 -->
+                    <div class="pt-4 border-t border-white/10">
+                        <label class="block text-xs font-medium text-slate-400 mb-2 uppercase">批量导入</label>
+                        <textarea id="bulkWords" rows="3" class="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-indigo-500 focus:outline-none text-white text-sm" placeholder="apple 苹果&#10;book 书"></textarea>
+                        <button onclick="app.addBulkWords()" class="mt-2 w-full btn-press py-2 rounded-xl bg-white/5 border border-white/10 text-sm">
+                            批量导入
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 列表模式 -->
+            <div id="listMode" class="hidden space-y-4">
+                <div class="glass rounded-3xl p-4">
+                    <div class="flex justify-between items-center mb-4 px-2">
+                        <h2 class="text-lg font-bold">单词库</h2>
+                        <button onclick="app.clearAll()" class="text-xs text-red-400">清空</button>
+                    </div>
+                    
+                    <div id="wordList" class="space-y-2 max-h-[500px] overflow-y-auto">
+                        <!-- 动态生成 -->
+                    </div>
+                    
+                    <div id="emptyState" class="hidden text-center py-12 text-slate-500">
+                        <p class="text-sm">暂无单词</p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- 虚拟键盘 -->
+    <div id="virtualKeyboard" class="virtual-keyboard">
+        <div class="grid grid-cols-10 gap-1 mb-1">
+            <button class="key-btn" onclick="app.typeKey('q')">Q</button>
+            <button class="key-btn" onclick="app.typeKey('w')">W</button>
+            <button class="key-btn" onclick="app.typeKey('e')">E</button>
+            <button class="key-btn" onclick="app.typeKey('r')">R</button>
+            <button class="key-btn" onclick="app.typeKey('t')">T</button>
+            <button class="key-btn" onclick="app.typeKey('y')">Y</button>
+            <button class="key-btn" onclick="app.typeKey('u')">U</button>
+            <button class="key-btn" onclick="app.typeKey('i')">I</button>
+            <button class="key-btn" onclick="app.typeKey('o')">O</button>
+            <button class="key-btn" onclick="app.typeKey('p')">P</button>
+        </div>
+        <div class="grid grid-cols-10 gap-1 mb-1 px-4">
+            <button class="key-btn" onclick="app.typeKey('a')">A</button>
+            <button class="key-btn" onclick="app.typeKey('s')">S</button>
+            <button class="key-btn" onclick="app.typeKey('d')">D</button>
+            <button class="key-btn" onclick="app.typeKey('f')">F</button>
+            <button class="key-btn" onclick="app.typeKey('g')">G</button>
+            <button class="key-btn" onclick="app.typeKey('h')">H</button>
+            <button class="key-btn" onclick="app.typeKey('j')">J</button>
+            <button class="key-btn" onclick="app.typeKey('k')">K</button>
+            <button class="key-btn" onclick="app.typeKey('l')">L</button>
+            <button class="key-btn special" onclick="app.backspace()">⌫</button>
+        </div>
+        <div class="grid grid-cols-9 gap-1 px-8">
+            <button class="key-btn" onclick="app.typeKey('z')">Z</button>
+            <button class="key-btn" onclick="app.typeKey('x')">X</button>
+            <button class="key-btn" onclick="app.typeKey('c')">C</button>
+            <button class="key-btn" onclick="app.typeKey('v')">V</button>
+            <button class="key-btn" onclick="app.typeKey('b')">B</button>
+            <button class="key-btn" onclick="app.typeKey('n')">N</button>
+            <button class="key-btn" onclick="app.typeKey('m')">M</button>
+            <button class="key-btn special col-span-2" onclick="app.checkWord()">Enter</button>
+        </div>
+    </div>
+
+    <!-- 安装提示 -->
+    <div id="installPrompt" class="install-prompt">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xl font-bold">
+                W
+            </div>
+            <div class="flex-1">
+                <h3 class="font-bold text-sm">安装 WordMaster</h3>
+                <p class="text-xs text-slate-400 mt-0.5">添加到主屏幕，离线也能使用</p>
+            </div>
+            <button onclick="app.installApp()" class="px-4 py-2 rounded-lg bg-indigo-600 text-sm font-bold btn-press">
+                安装
+            </button>
+        </div>
+        <button onclick="app.dismissInstall()" class="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-xs">
+            ×
+        </button>
+    </div>
+
+    <!-- 粒子容器 -->
+    <div id="particles" class="fixed inset-0 pointer-events-none z-50"></div>
+
+    <script>
+        class WordMaster {
+            constructor() {
+                this.words = this.loadWords();
+                this.currentIndex = 0;
+                this.currentInput = [];
+                this.streak = 0;
+                this.mastered = new Set(this.loadMastered());
+                this.deferredPrompt = null;
+                
+                this.init();
+                this.setupPWA();
+            }
+
+            init() {
+                this.updateStats();
+                this.renderWordList();
+                
+                if (this.words.length > 0) {
+                    this.loadWord(0);
+                } else {
+                    this.showEmptyState();
+                }
+
+                // 键盘事件
+                document.addEventListener('keydown', (e) => this.handleKeydown(e));
+                
+                // 触摸优化
+                document.addEventListener('touchstart', function() {}, {passive: true});
+                
+                // 显示虚拟键盘
+                this.showVirtualKeyboard();
+            }
+
+            setupPWA() {
+                // 注册 Service Worker
+                if ('serviceWorker' in navigator) {
+                    const swCode = `
+                        self.addEventListener('install', e => e.waitUntil(self.skipWaiting()));
+                        self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+                        self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => new Response('Offline'))));
+                    `;
+                    const blob = new Blob([swCode], {type: 'application/javascript'});
+                    const swUrl = URL.createObjectURL(blob);
+                    navigator.serviceWorker.register(swUrl).catch(err => console.log('SW注册失败'));
+                }
+
+                // 安装提示
+                window.addEventListener('beforeinstallprompt', (e) => {
+                    e.preventDefault();
+                    this.deferredPrompt = e;
+                    setTimeout(() => {
+                        document.getElementById('installPrompt').classList.add('show');
+                    }, 2000);
+                });
+
+                // iOS 安装检测
+                if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
+                    if (!window.navigator.standalone) {
+                        setTimeout(() => {
+                            document.getElementById('installPrompt').classList.add('show');
+                            document.querySelector('#installPrompt button').textContent = '了解';
+                            document.querySelector('#installPrompt p').textContent = '点击分享按钮，选择"添加到主屏幕"';
+                        }, 3000);
+                    }
+                }
+            }
+
+            installApp() {
+                if (this.deferredPrompt) {
+                    this.deferredPrompt.prompt();
+                    this.deferredPrompt.userChoice.then((choiceResult) => {
+                        if (choiceResult.outcome === 'accepted') {
+                            console.log('用户安装了应用');
+                        }
+                        this.deferredPrompt = null;
+                        document.getElementById('installPrompt').classList.remove('show');
+                    });
+                } else {
+                    // iOS 提示
+                    alert('请按以下步骤安装：\n\n1. 点击 Safari 底部的分享按钮 ⬆️\n2. 向上滑动，找到"添加到主屏幕"\n3. 点击"添加"');
+                }
+            }
+
+            dismissInstall() {
+                document.getElementById('installPrompt').classList.remove('show');
+            }
+
+            // 虚拟键盘控制
+            showVirtualKeyboard() {
+                const kb = document.getElementById('virtualKeyboard');
+                if (window.innerWidth < 768) {
+                    kb.classList.add('show');
+                }
+            }
+
+            typeKey(char) {
+                const currentWord = this.words[this.currentIndex]?.word || '';
+                const emptyIndex = this.currentInput.findIndex(c => c === '');
+                
+                if (emptyIndex !== -1) {
+                    this.currentInput[emptyIndex] = char;
+                    this.updateSlot(emptyIndex);
+                    
+                    // 触觉反馈
+                    if (navigator.vibrate) navigator.vibrate(10);
+                    
+                    if (!this.currentInput.includes('')) {
+                        setTimeout(() => this.checkWord(), 200);
+                    }
+                }
+            }
+
+            backspace() {
+                let lastIndex = this.currentInput.length - 1;
+                while (lastIndex >= 0 && this.currentInput[lastIndex] === '') {
+                    lastIndex--;
+                }
+                if (lastIndex >= 0) {
+                    this.currentInput[lastIndex] = '';
+                    this.updateSlot(lastIndex);
+                    if (navigator.vibrate) navigator.vibrate(10);
+                }
+            }
+
+            focusInput() {
+                document.getElementById('hiddenInput').focus();
+            }
+
+            // 存储管理
+            loadWords() {
+                const saved = localStorage.getItem('wordmaster_words');
+                return saved ? JSON.parse(saved) : [
+                    {word: 'hello', definition: '你好；打招呼'},
+                    {word: 'world', definition: '世界'},
+                    {word: 'practice', definition: '练习'}
+                ];
+            }
+
+            saveWords() {
+                localStorage.setItem('wordmaster_words', JSON.stringify(this.words));
+            }
+
+            loadMastered() {
+                const saved = localStorage.getItem('wordmaster_mastered');
+                return saved ? JSON.parse(saved) : [];
+            }
+
+            saveMastered() {
+                localStorage.setItem('wordmaster_mastered', JSON.stringify([...this.mastered]));
+            }
+
+            toggleView(view) {
+                document.getElementById('studyMode').classList.add('hidden');
+                document.getElementById('addMode').classList.add('hidden');
+                document.getElementById('listMode').classList.add('hidden');
+                document.getElementById(view + 'Mode').classList.remove('hidden');
+                
+                if (view === 'list') this.renderWordList();
+                else if (view === 'study' && this.words.length > 0) this.loadWord(this.currentIndex);
+                
+                // 控制键盘显示
+                const kb = document.getElementById('virtualKeyboard');
+                if (view === 'study' && window.innerWidth < 768) {
+                    kb.classList.add('show');
+                } else {
+                    kb.classList.remove('show');
+                }
+            }
+
+            loadWord(index) {
+                if (this.words.length === 0) return;
+                
+                this.currentIndex = index % this.words.length;
+                const word = this.words[this.currentIndex];
+                
+                document.getElementById('wordDefinition').textContent = word.definition;
+                document.getElementById('wordIndex').textContent = this.currentIndex + 1;
+                document.getElementById('totalCount').textContent = this.words.length;
+                
+                this.currentInput = new Array(word.word.length).fill('');
+                this.renderSlots(word.word.length);
+                
+                setTimeout(() => this.speak(word.word), 500);
+            }
+
+            renderSlots(count) {
+                const container = document.getElementById('spellingArea');
+                container.innerHTML = '';
+                
+                for (let i = 0; i < count; i++) {
+                    const slot = document.createElement('div');
+                    slot.className = `letter-slot w-10 h-12 rounded-lg border-2 border-white/20 bg-white/5 flex items-center justify-center text-xl font-bold uppercase`;
+                    slot.dataset.index = i;
+                    slot.textContent = this.currentInput[i] || '';
+                    
+                    if (this.currentInput[i]) slot.classList.add('filled');
+                    container.appendChild(slot);
+                }
+            }
+
+            updateSlot(index) {
+                const slots = document.querySelectorAll('.letter-slot');
+                const slot = slots[index];
+                if (!slot) return;
+                
+                slot.textContent = this.currentInput[index] || '';
+                slot.classList.toggle('filled', !!this.currentInput[index]);
+                slot.classList.remove('wrong');
+            }
+
+            handleKeydown(e) {
+                if (document.getElementById('addMode').classList.contains('hidden') === false) return;
+                
+                const currentWord = this.words[this.currentIndex]?.word || '';
+                
+                if (e.key === 'Backspace') {
+                    e.preventDefault();
+                    this.backspace();
+                } else if (e.key === 'Enter') {
+                    this.checkWord();
+                } else if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+                    e.preventDefault();
+                    this.typeKey(e.key.toLowerCase());
+                }
+            }
+
+            checkWord() {
+                const currentWord = this.words[this.currentIndex].word.toLowerCase();
+                const input = this.currentInput.join('').toLowerCase();
+                
+                if (input === currentWord) {
+                    this.handleSuccess();
+                } else {
+                    this.handleError();
+                }
+            }
+
+            handleSuccess() {
+                const slots = document.querySelectorAll('.letter-slot');
+                slots.forEach(slot => {
+                    slot.classList.add('correct');
+                    slot.classList.remove('filled');
+                });
+                
+                this.mastered.add(this.words[this.currentIndex].word);
+                this.saveMastered();
+                this.streak++;
+                this.updateStats();
+                
+                const feedback = document.getElementById('feedback');
+                feedback.textContent = '✨ 正确！+' + Math.min(this.streak * 10, 50) + '分';
+                feedback.className = 'h-6 text-sm font-medium transition-all text-emerald-400';
+                feedback.style.opacity = '1';
+                
+                this.createParticles();
+                this.playSuccessSound();
+                
+                if (navigator.vibrate) navigator.vibrate([50, 100, 50]);
+                
+                setTimeout(() => {
+                    feedback.style.opacity = '0';
+                    this.nextWord();
+                }, 1500);
+            }
+
+            handleError() {
+                const slots = document.querySelectorAll('.letter-slot');
+                slots.forEach((slot, index) => {
+                    if (this.currentInput[index] !== this.words[this.currentIndex].word[index]) {
+                        slot.classList.add('wrong');
+                    }
+                });
+                
+                this.streak = 0;
+                this.updateStats();
+                
+                const feedback = document.getElementById('feedback');
+                feedback.textContent = '❌ 错误，请重试';
+                feedback.className = 'h-6 text-sm font-medium transition-all text-red-400';
+                feedback.style.opacity = '1';
+                
+                if (navigator.vibrate) navigator.vibrate(200);
+                
+                setTimeout(() => {
+                    feedback.style.opacity = '0';
+                    this.currentInput = new Array(this.words[this.currentIndex].word.length).fill('');
+                    this.renderSlots(this.words[this.currentIndex].word.length);
+                }, 1200);
+            }
+
+            createParticles() {
+                const container = document.getElementById('particles');
+                const colors = ['#6366f1', '#10b981', '#f59e0b'];
+                
+                for (let i = 0; i < 15; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'particle w-3 h-3 rounded-full';
+                    particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+                    particle.style.left = (window.innerWidth / 2 + (Math.random() - 0.5) * 200) + 'px';
+                    particle.style.top = (window.innerHeight / 2) + 'px';
+                    particle.style.animationDelay = Math.random() * 0.3 + 's';
+                    
+                    container.appendChild(particle);
+                    setTimeout(() => particle.remove(), 1000);
+                }
+            }
+
+            playSuccessSound() {
+                try {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime);
+                    oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1);
+                    oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2);
+                    
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                    
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.5);
+                } catch (e) {}
+            }
+
+            speak(text) {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'en-US';
+                    utterance.rate = 0.8;
+                    window.speechSynthesis.speak(utterance);
+                }
+            }
+
+            speakCurrent() {
+                if (this.words[this.currentIndex]) {
+                    this.speak(this.words[this.currentIndex].word);
+                }
+            }
+
+            showHint() {
+                if (this.words[this.currentIndex]) {
+                    const word = this.words[this.currentIndex].word;
+                    if (this.currentInput[0] === '') {
+                        this.currentInput[0] = word[0];
+                        this.updateSlot(0);
+                    }
+                }
+            }
+
+            nextWord() {
+                let nextIndex;
+                do {
+                    nextIndex = Math.floor(Math.random() * this.words.length);
+                } while (nextIndex === this.currentIndex && this.words.length > 1);
+                this.loadWord(nextIndex);
+            }
+
+            addWord() {
+                const wordInput = document.getElementById('newWord');
+                const defInput = document.getElementById('newDefinition');
+                
+                const word = wordInput.value.trim().toLowerCase();
+                const definition = defInput.value.trim();
+                
+                if (!word || !definition) {
+                    alert('请输入完整信息');
+                    return;
+                }
+                
+                if (!/^[a-zA-Z]+$/.test(word)) {
+                    alert('单词只能包含字母');
+                    return;
+                }
+                
+                this.words.push({word, definition});
+                this.saveWords();
+                
+                wordInput.value = '';
+                defInput.value = '';
+                
+                this.updateStats();
+                this.toggleView('study');
+                this.loadWord(this.words.length - 1);
+            }
+
+            addBulkWords() {
+                const textarea = document.getElementById('bulkWords');
+                const lines = textarea.value.trim().split('\n');
+                
+                let added = 0;
+                lines.forEach(line => {
+                    const parts = line.trim().split(/\s+/);
+                    if (parts.length >= 2) {
+                        const word = parts[0];
+                        const definition = parts.slice(1).join(' ');
+                        if (/^[a-zA-Z]+$/.test(word)) {
+                            this.words.push({word: word.toLowerCase(), definition});
+                            added++;
+                        }
+                    }
+                });
+                
+                if (added > 0) {
+                    this.saveWords();
+                    textarea.value = '';
+                    alert(`成功添加 ${added} 个单词`);
+                    this.updateStats();
+                    this.toggleView('study');
+                }
+            }
+
+            renderWordList() {
+                const container = document.getElementById('wordList');
+                const emptyState = document.getElementById('emptyState');
+                
+                if (this.words.length === 0) {
+                    container.innerHTML = '';
+                    emptyState.classList.remove('hidden');
+                    return;
+                }
+                
+                emptyState.classList.add('hidden');
+                container.innerHTML = this.words.map((item, index) => `
+                    <div class="flex items-center justify-between p-3 rounded-xl bg-white/5">
+                        <div class="flex items-center gap-3">
+                            <button onclick="app.speak('${item.word}')" class="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center active:scale-90 transition-transform">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                            </button>
+                            <div>
+                                <div class="font-bold ${this.mastered.has(item.word) ? 'text-emerald-400' : 'text-white'}">
+                                    ${item.word} ${this.mastered.has(item.word) ? '✓' : ''}
+                                </div>
+                                <div class="text-xs text-slate-400">${item.definition}</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="app.practiceWord(${index})" class="px-3 py-1 rounded-lg bg-indigo-500/20 text-indigo-400 text-xs">练习</button>
+                            <button onclick="app.deleteWord(${index})" class="px-3 py-1 rounded-lg bg-red-500/20 text-red-400 text-xs">删除</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            practiceWord(index) {
+                this.toggleView('study');
+                this.loadWord(index);
+            }
+
+            deleteWord(index) {
+                if (confirm('删除这个单词？')) {
+                    const word = this.words[index].word;
+                    this.words.splice(index, 1);
+                    this.mastered.delete(word);
+                    this.saveWords();
+                    this.saveMastered();
+                    this.renderWordList();
+                    this.updateStats();
+                }
+            }
+
+            clearAll() {
+                if (confirm('清空所有单词？')) {
+                    this.words = [];
+                    this.mastered.clear();
+                    this.saveWords();
+                    this.saveMastered();
+                    this.renderWordList();
+                    this.updateStats();
+                }
+            }
+
+            updateStats() {
+                document.getElementById('totalWords').textContent = this.words.length;
+                document.getElementById('masteredWords').textContent = this.mastered.size;
+                document.getElementById('currentStreak').textContent = this.streak;
+            }
+
+            showEmptyState() {
+                document.getElementById('wordDefinition').textContent = '请先添加单词';
+                document.getElementById('spellingArea').innerHTML = '';
+            }
+        }
+
+        const app = new WordMaster();
+    </script>
+</body>
+</html>
