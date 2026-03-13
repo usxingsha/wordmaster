@@ -24,13 +24,18 @@
             height: 100%;
             overflow: hidden;
             position: fixed;
-            touch-action: manipulation;
+            touch-action: none; /* 阻止默认触摸行为 */
         }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(180deg, #0a1628 0%, #1a3a5c 50%, #0d2137 100%);
             color: white;
+            /* 修复iOS橡皮筋效果 */
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            overscroll-behavior: none;
         }
 
         #app {
@@ -41,7 +46,13 @@
             -webkit-overflow-scrolling: touch;
             position: relative;
             padding-bottom: 100px;
-            overscroll-behavior-y: contain;
+            overscroll-behavior-y: contain; /* 防止滚动链 */
+        }
+
+        /* 修复iOS滚动容器问题 */
+        .ios-scroll-fix {
+            -webkit-overflow-scrolling: touch;
+            transform: translateZ(0); /* 强制硬件加速 */
         }
 
         .bg-glow {
@@ -77,6 +88,7 @@
             font-size: 20px;
             font-weight: bold;
             flex-shrink: 0;
+            pointer-events: auto; /* 确保可点击 */
         }
 
         .letter-slot.filled { 
@@ -114,9 +126,10 @@
             padding: 8px 4px calc(8px + env(safe-area-inset-bottom));
             z-index: 1000;
             transform: translateY(100%);
-            transition: transform 0.3s ease;
-            max-height: 50vh;
-            touch-action: none;
+            transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+            max-height: 45vh; /* 稍微减小最大高度 */
+            touch-action: manipulation; /* 优化触摸响应 */
+            will-change: transform; /* 硬件加速 */
         }
 
         .keyboard-wrapper.active {
@@ -129,6 +142,7 @@
             gap: 6px;
             margin-bottom: 6px;
             padding: 0 4px;
+            pointer-events: auto; /* 确保可点击 */
         }
 
         .key-btn {
@@ -147,13 +161,15 @@
             transition: all 0.1s;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
             cursor: pointer;
-            -webkit-touch-callout: none;
-            user-select: none;
-            touch-action: manipulation;
+            pointer-events: auto; /* 确保可点击 */
+            touch-action: manipulation; /* 防止双击缩放 */
             position: relative;
             overflow: hidden;
+            -webkit-user-select: none;
+            user-select: none;
         }
 
+        /* 修复按钮涟漪效果导致的点击问题 */
         .key-btn::after {
             content: '';
             position: absolute;
@@ -165,6 +181,7 @@
             border-radius: 50%;
             transform: translate(-50%, -50%);
             transition: width 0.3s, height 0.3s;
+            pointer-events: none; /* 防止伪元素阻挡点击 */
         }
 
         .key-btn:active::after {
@@ -199,6 +216,8 @@
             padding: 10px;
             position: relative;
             transition: all 0.3s;
+            pointer-events: auto; /* 确保可点击 */
+            touch-action: manipulation;
         }
 
         .input-area:focus-within {
@@ -212,6 +231,7 @@
             opacity: 0;
             width: 1px;
             height: 1px;
+            pointer-events: none;
         }
 
         .image-upload-area {
@@ -225,6 +245,7 @@
             touch-action: manipulation;
             position: relative;
             overflow: hidden;
+            pointer-events: auto;
         }
 
         .image-upload-area::before {
@@ -236,6 +257,7 @@
             height: 100%;
             background: linear-gradient(90deg, transparent, rgba(0,200,255,0.1), transparent);
             transition: left 0.5s;
+            pointer-events: none;
         }
 
         .image-upload-area:hover::before, .image-upload-area.dragover::before {
@@ -252,6 +274,7 @@
             max-height: 200px;
             border-radius: 12px;
             margin-top: 10px;
+            pointer-events: none; /* 防止图片阻挡上传区域点击 */
         }
 
         .ocr-result {
@@ -273,6 +296,9 @@
             transition: all 0.2s;
             touch-action: manipulation;
             border: 2px solid transparent;
+            pointer-events: auto;
+            position: relative;
+            z-index: 1;
         }
 
         .ocr-word:hover, .ocr-word:active {
@@ -321,6 +347,9 @@
             cursor: pointer;
             transition: all 0.2s;
             touch-action: manipulation;
+            pointer-events: auto;
+            position: relative;
+            z-index: 1;
         }
 
         .suggestion-chip:hover, .suggestion-chip:active {
@@ -332,22 +361,18 @@
             display: none;
             padding: 16px;
             padding-bottom: 120px;
-            animation: fadeOut 0.2s ease;
+            /* 修复：移除可能导致点击问题的动画初始状态 */
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s, transform 0.3s;
+            pointer-events: none; /* 隐藏时不可点击 */
         }
 
         .view.active {
             display: block;
-            animation: fadeIn 0.3s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes fadeOut {
-            from { opacity: 1; transform: translateY(0); }
-            to { opacity: 0; transform: translateY(-10px); }
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto; /* 显示时可点击 */
         }
 
         .bottom-nav {
@@ -364,6 +389,7 @@
             z-index: 100;
             transform: translateZ(0);
             transition: transform 0.3s;
+            will-change: transform;
         }
 
         .bottom-nav.hidden {
@@ -384,6 +410,9 @@
             cursor: pointer;
             touch-action: manipulation;
             position: relative;
+            pointer-events: auto; /* 确保可点击 */
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         .nav-btn::after {
@@ -406,7 +435,7 @@
             width: 20px;
         }
 
-        .nav-btn svg { width: 24px; height: 24px; }
+        .nav-btn svg { width: 24px; height: 24px; pointer-events: none; } /* 修复SVG阻挡点击 */
 
         .no-scroll {
             overflow: hidden !important;
@@ -425,11 +454,13 @@
             padding: 20px;
             opacity: 0;
             transition: opacity 0.3s;
+            pointer-events: none; /* 防止遮罩阻挡 */
         }
 
         .modal-overlay.active {
             display: flex;
             opacity: 1;
+            pointer-events: auto;
         }
 
         .modal-content {
@@ -440,8 +471,10 @@
             max-width: 400px;
             max-height: 80vh;
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
             transform: scale(0.9);
             transition: transform 0.3s;
+            pointer-events: auto; /* 确保内容可点击 */
         }
 
         .modal-overlay.active .modal-content {
@@ -477,6 +510,8 @@
             cursor: pointer;
             text-align: center;
             transition: all 0.2s;
+            pointer-events: auto;
+            touch-action: manipulation;
         }
 
         .voice-pack-item:hover, .voice-pack-item.selected {
@@ -493,6 +528,7 @@
             position: relative;
             overflow: hidden;
             transition: all 0.3s;
+            pointer-events: auto;
         }
 
         .memory-card:hover {
@@ -509,6 +545,7 @@
             height: 100%;
             background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
             transition: left 0.5s;
+            pointer-events: none;
         }
 
         .memory-card:hover::before {
@@ -529,17 +566,6 @@
             transition: width 0.3s;
         }
 
-        @media (pointer: coarse) {
-            * { touch-action: manipulation; }
-        }
-
-        .ios-locked {
-            position: fixed;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-        }
-
         .ocr-text-block {
             background: rgba(0,0,0,0.3);
             border-radius: 12px;
@@ -547,11 +573,13 @@
             margin: 10px 0;
             max-height: 200px;
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
             font-family: monospace;
             font-size: 14px;
             line-height: 1.6;
             white-space: pre-wrap;
             word-break: break-all;
+            pointer-events: auto;
         }
 
         .translate-btn {
@@ -566,6 +594,10 @@
             font-size: 13px;
             cursor: pointer;
             transition: all 0.2s;
+            pointer-events: auto;
+            touch-action: manipulation;
+            position: relative;
+            z-index: 1;
         }
 
         .translate-btn:hover {
@@ -585,6 +617,7 @@
             overflow-x: auto;
             padding-bottom: 4px;
             scrollbar-width: none;
+            pointer-events: auto;
         }
 
         .tab-container::-webkit-scrollbar {
@@ -602,6 +635,8 @@
             transition: all 0.2s;
             white-space: nowrap;
             flex-shrink: 0;
+            pointer-events: auto;
+            touch-action: manipulation;
         }
 
         .tab-btn.active {
@@ -652,6 +687,7 @@
             max-width: 80%;
             text-align: center;
             opacity: 0;
+            pointer-events: none; /* 防止toast阻挡点击 */
         }
 
         .toast.show {
@@ -706,10 +742,18 @@
             background: rgba(0,200,255,0.5);
         }
 
-        /* 按钮点击效果 */
+        /* 按钮点击效果 - 修复版 */
         .btn-click-effect {
             position: relative;
             overflow: hidden;
+            pointer-events: auto;
+            touch-action: manipulation;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .btn-click-effect:active {
+            transform: scale(0.95);
         }
 
         .btn-click-effect::after {
@@ -723,6 +767,7 @@
             border-radius: 50%;
             transform: translate(-50%, -50%);
             transition: width 0.6s, height 0.6s;
+            pointer-events: none;
         }
 
         .btn-click-effect:active::after {
@@ -751,12 +796,32 @@
             align-items: center;
             justify-content: center;
             z-index: 2500;
+            pointer-events: auto; /* 遮罩层可点击（阻止下方交互） */
         }
 
         .loading-overlay.active {
             display: flex;
         }
+
+        /* 修复链接点击问题 */
+        a, button {
+            pointer-events: auto;
+            touch-action: manipulation;
+        }
+
+        /* 修复 sticky 标题栏遮挡问题 */
+        header {
+            z-index: 40;
+            /* 确保sticky元素在正确层 */
+            will-change: transform;
+        }
+
+        /* 修复 flex 布局导致的高度问题 */
+        .flex {
+            min-height: 0; /* 允许flex子项收缩 */
+        }
     </style>
+<base target="_blank">
 <base target="_blank">
 </head>
 <body>
@@ -771,16 +836,16 @@
     <input type="file" id="imageInput" class="hidden-input" accept="image/*" capture="environment">
     <input type="text" id="systemInput" class="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
 
-    <div id="app">
-        <header class="flex justify-between items-center p-4 sticky top-0 z-40 bg-gradient-to-b from-[#0a1628] to-transparent">
-            <div class="flex items-center gap-3">
+    <div id="app" class="ios-scroll-fix">
+        <header class="flex justify-between items-center p-4 sticky top-0 bg-gradient-to-b from-[#0a1628] to-transparent">
+            <div class="flex items-center gap-3 pointer-events-none"> <!-- 防止标题阻挡滑动 -->
                 <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-2xl font-bold shadow-lg">W</div>
                 <div>
                     <h1 class="text-xl font-bold">WordMaster Pro</h1>
                     <p class="text-xs text-cyan-300/70" id="currentPath">默认库</p>
                 </div>
             </div>
-            <div class="flex gap-2">
+            <div class="flex gap-2 pointer-events-auto"> <!-- 恢复按钮点击 -->
                 <button onclick="showMemoryView()" class="p-3 rounded-xl glass btn-click-effect" title="记忆管理">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 </button>
@@ -818,7 +883,7 @@
                 </div>
 
                 <div class="flex justify-center gap-4 mb-4">
-                    <button onclick="speakCurrent()" class="w-14 h-14 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center border border-cyan-400/30 active:scale-95 transition-transform btn-click-effect">
+                    <button onclick="speakCurrent()" class="w-14 h-14 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center border border-cyan-400/30 btn-click-effect">
                         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
                     </button>
                     <button onclick="translateCurrent()" class="translate-btn btn-click-effect">
@@ -836,17 +901,17 @@
                     </div>
                 </div>
 
-                <div class="input-area mb-4" id="inputArea" onclick="onInputAreaClick()">
+                <div class="input-area mb-4" id="inputArea" onclick="onInputAreaClick(event)">
                     <span id="inputDisplay"></span><span class="animate-pulse text-cyan-400">|</span>
                 </div>
 
                 <div id="spellingArea" class="flex flex-wrap justify-center gap-2 min-h-[60px] py-2 mb-4"></div>
 
                 <div class="flex justify-center gap-3 flex-wrap">
-                    <button onclick="showHint()" class="px-5 py-2.5 rounded-xl bg-white/5 border border-white/20 text-sm active:scale-95 transition-transform btn-click-effect">提示</button>
-                    <button onclick="checkWord()" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-sm font-bold active:scale-95 transition-transform btn-click-effect">确认</button>
-                    <button onclick="nextWord()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-sm font-bold active:scale-95 transition-transform btn-click-effect">下一个</button>
-                    <button onclick="markDifficult()" class="px-4 py-2.5 rounded-xl bg-red-500/20 border border-red-500/40 text-sm text-red-300 active:scale-95 transition-transform btn-click-effect">难点</button>
+                    <button onclick="showHint()" class="px-5 py-2.5 rounded-xl bg-white/5 border border-white/20 text-sm btn-click-effect">提示</button>
+                    <button onclick="checkWord()" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-sm font-bold btn-click-effect">确认</button>
+                    <button onclick="nextWord()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-sm font-bold btn-click-effect">下一个</button>
+                    <button onclick="markDifficult()" class="px-4 py-2.5 rounded-xl bg-red-500/20 border border-red-500/40 text-sm text-red-300 btn-click-effect">难点</button>
                 </div>
 
                 <div id="feedback" class="h-6 text-sm font-medium opacity-0 transition-opacity text-center mt-3"></div>
@@ -875,7 +940,7 @@
                     <button class="tab-btn" onclick="switchOcrTab('translate', this)">识别并翻译</button>
                 </div>
 
-                <div class="image-upload-area" id="uploadArea" onclick="triggerImageUpload()">
+                <div class="image-upload-area" id="uploadArea" onclick="triggerImageUpload(event)">
                     <svg class="w-12 h-12 mx-auto mb-3 text-cyan-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                     <p class="text-sm text-cyan-200/70">点击拍照或上传图片</p>
                     <p class="text-xs text-slate-400 mt-1">支持自动识别、补全、纠错、翻译</p>
@@ -916,12 +981,12 @@
                     </div>
 
                     <div class="mt-4 space-y-3">
-                        <input type="text" id="ocrWordInput" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white" placeholder="英文单词">
-                        <input type="text" id="ocrDefInput" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white" placeholder="中文释义（可选，留空自动翻译）">
+                        <input type="text" id="ocrWordInput" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white" placeholder="英文单词" autocomplete="off">
+                        <input type="text" id="ocrDefInput" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white" placeholder="中文释义（可选，留空自动翻译）" autocomplete="off">
 
                         <div class="flex gap-2">
                             <select id="ocrLibSelect" class="flex-1 px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white text-sm"></select>
-                            <button onclick="addOcrWord()" class="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 font-bold text-sm active:scale-95 transition-transform btn-click-effect">添加</button>
+                            <button onclick="addOcrWord()" class="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 font-bold text-sm btn-click-effect">添加</button>
                         </div>
                     </div>
                 </div>
@@ -932,9 +997,9 @@
             <div class="glass rounded-3xl p-4">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-xl font-bold">单词库</h2>
-                    <button onclick="showCreateLibDialog()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-sm font-bold active:scale-95 transition-transform btn-click-effect">+ 新建</button>
+                    <button onclick="showCreateLibDialog()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-sm font-bold btn-click-effect">+ 新建</button>
                 </div>
-                <div id="libraryTree" class="space-y-2 max-h-[60vh] overflow-y-auto"></div>
+                <div id="libraryTree" class="space-y-2 max-h-[60vh] overflow-y-auto ios-scroll-fix"></div>
             </div>
         </div>
 
@@ -943,15 +1008,15 @@
                 <h2 class="text-xl font-bold">添加单词</h2>
                 <select id="selectLibrary" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white"></select>
                 <input type="text" id="newWord" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white text-lg" placeholder="英文单词" autocomplete="off">
-                <input type="text" id="newDef" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white" placeholder="中文释义（可选，留空自动翻译）">
+                <input type="text" id="newDef" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white" placeholder="中文释义（可选，留空自动翻译）" autocomplete="off">
                 <div class="flex gap-3">
-                    <button onclick="addWord()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 font-bold active:scale-95 transition-transform btn-click-effect">添加</button>
-                    <button onclick="autoTranslateNewWord()" class="px-4 py-3 rounded-xl bg-white/5 border border-white/20 text-sm active:scale-95 transition-transform btn-click-effect">自动翻译</button>
+                    <button onclick="addWord()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 font-bold btn-click-effect">添加</button>
+                    <button onclick="autoTranslateNewWord()" class="px-4 py-3 rounded-xl bg-white/5 border border-white/20 text-sm btn-click-effect">自动翻译</button>
                 </div>
                 <textarea id="bulkWords" rows="3" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-sm" placeholder="批量导入：apple 苹果&#10;book 书&#10;支持自动翻译，只输入英文即可"></textarea>
                 <div class="flex gap-2">
-                    <button onclick="addBulk()" class="flex-1 py-3 rounded-xl bg-white/5 border border-white/20 text-sm active:scale-95 transition-transform btn-click-effect">批量导入</button>
-                    <button onclick="autoTranslateBulk()" class="px-4 py-3 rounded-xl bg-white/5 border border-white/20 text-sm active:scale-95 transition-transform btn-click-effect">自动翻译</button>
+                    <button onclick="addBulk()" class="flex-1 py-3 rounded-xl bg-white/5 border border-white/20 text-sm btn-click-effect">批量导入</button>
+                    <button onclick="autoTranslateBulk()" class="px-4 py-3 rounded-xl bg-white/5 border border-white/20 text-sm btn-click-effect">自动翻译</button>
                 </div>
             </div>
         </div>
@@ -971,7 +1036,7 @@
                     <button class="tab-btn" onclick="switchMemoryTab('difficult', this)">难点单词</button>
                 </div>
 
-                <div id="memoryList" class="space-y-3 max-h-[60vh] overflow-y-auto"></div>
+                <div id="memoryList" class="space-y-3 max-h-[60vh] overflow-y-auto ios-scroll-fix"></div>
 
                 <div class="glass rounded-2xl p-4 mt-4">
                     <h3 class="font-bold mb-3 text-sm text-cyan-300">记忆曲线说明</h3>
@@ -1017,10 +1082,10 @@
     <div class="keyboard-wrapper" id="virtualKeyboard">
         <div class="flex justify-between px-4 mb-2">
             <div class="flex gap-2">
-                <button class="text-xs px-3 py-1 rounded bg-white/10 active:scale-95 btn-click-effect" onclick="toggleSymbolMode()">符</button>
-                <button class="text-xs px-3 py-1 rounded bg-white/10 active:scale-95 btn-click-effect" onclick="toggleShift()" id="shiftBtn">⇧</button>
+                <button class="text-xs px-3 py-1 rounded bg-white/10 btn-click-effect" onclick="toggleSymbolMode(event)">符</button>
+                <button class="text-xs px-3 py-1 rounded bg-white/10 btn-click-effect" onclick="toggleShift(event)" id="shiftBtn">⇧</button>
             </div>
-            <button class="text-xs px-3 py-1 rounded bg-red-500/20 text-red-300 active:scale-95 btn-click-effect" onclick="hideKeyboard()">收起</button>
+            <button class="text-xs px-3 py-1 rounded bg-red-500/20 text-red-300 btn-click-effect" onclick="hideKeyboard()">收起</button>
         </div>
 
         <div id="letterKeyboard">
@@ -1046,7 +1111,7 @@
                 <button class="key-btn" data-key="j">j</button>
                 <button class="key-btn" data-key="k">k</button>
                 <button class="key-btn" data-key="l">l</button>
-                <button class="key-btn function" onclick="backspace()">⌫</button>
+                <button class="key-btn function" onclick="backspace(event)">⌫</button>
             </div>
             <div class="keyboard-row">
                 <button class="key-btn wide" data-key="z">z</button>
@@ -1059,7 +1124,7 @@
                 <button class="key-btn extra-wide function" onclick="checkWord()">Enter</button>
             </div>
             <div class="keyboard-row">
-                <button class="key-btn wide" onclick="toggleSymbolMode()">123</button>
+                <button class="key-btn wide" onclick="toggleSymbolMode(event)">123</button>
                 <button class="key-btn space" onclick="typeKey(' ')">space</button>
                 <button class="key-btn wide" data-key=".">.</button>
             </div>
@@ -1088,18 +1153,18 @@
                 <button class="key-btn" data-key=")">)</button>
                 <button class="key-btn" data-key="!">!</button>
                 <button class="key-btn" data-key="?">?</button>
-                <button class="key-btn function" onclick="backspace()">⌫</button>
+                <button class="key-btn function" onclick="backspace(event)">⌫</button>
             </div>
             <div class="keyboard-row">
-                <button class="key-btn wide" onclick="toggleSymbolMode()">ABC</button>
+                <button class="key-btn wide" onclick="toggleSymbolMode(event)">ABC</button>
                 <button class="key-btn space" onclick="typeKey(' ')">space</button>
                 <button class="key-btn extra-wide function" onclick="checkWord()">Enter</button>
             </div>
         </div>
     </div>
 
-    <div id="settingsModal" class="modal-overlay" onclick="if(event.target===this)closeSettings()">
-        <div class="modal-content p-6 space-y-4">
+    <div id="settingsModal" class="modal-overlay" onclick="closeSettingsModal(event)">
+        <div class="modal-content p-6 space-y-4" onclick="event.stopPropagation()">
             <h3 class="text-xl font-bold text-center">设置</h3>
             <div class="space-y-3">
                 <div class="flex justify-between items-center p-3 rounded-xl bg-white/5">
@@ -1153,12 +1218,12 @@
             </div>
 
             <div class="pt-4 border-t border-white/10 space-y-2">
-                <button onclick="exportData()" class="w-full py-2 rounded-xl bg-white/5 text-sm active:scale-95 transition-transform btn-click-effect">导出数据</button>
-                <button onclick="importData()" class="w-full py-2 rounded-xl bg-white/5 text-sm active:scale-95 transition-transform btn-click-effect">导入数据</button>
-                <button onclick="clearAllData()" class="w-full py-2 rounded-xl bg-red-500/20 text-red-400 text-sm active:scale-95 transition-transform btn-click-effect">清除所有数据</button>
+                <button onclick="exportData()" class="w-full py-2 rounded-xl bg-white/5 text-sm btn-click-effect">导出数据</button>
+                <button onclick="importData()" class="w-full py-2 rounded-xl bg-white/5 text-sm btn-click-effect">导入数据</button>
+                <button onclick="clearAllData()" class="w-full py-2 rounded-xl bg-red-500/20 text-red-400 text-sm btn-click-effect">清除所有数据</button>
             </div>
 
-            <button onclick="closeSettings()" class="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 font-bold mt-4 active:scale-95 transition-transform btn-click-effect">确定</button>
+            <button onclick="closeSettings()" class="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 font-bold mt-4 btn-click-effect">确定</button>
         </div>
     </div>
 
@@ -1187,6 +1252,7 @@
         let memoryData = {};
         let difficultWords = new Set();
         let isProcessing = false;
+        let keyboardVisible = false; // 新增：键盘状态追踪
 
         const EBINGHAUS_INTERVALS = [5, 30, 720, 1440, 2880, 5760, 10080, 21600];
 
@@ -1225,7 +1291,8 @@
 
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
-            init();
+            // 延迟初始化确保DOM完全就绪
+            setTimeout(init, 0);
         });
 
         function init() {
@@ -1265,36 +1332,83 @@
             if(lib && lib.node.words.length) loadWord(0);
             else showEmpty();
 
-            bindKeyboardEvents();
+            // 使用事件委托绑定键盘事件（修复动态元素问题）
+            setupDelegatedEvents();
             bindGlobalEvents();
 
-            // 语音包选择
-            document.querySelectorAll('.voice-pack-item').forEach(item => {
-                item.addEventListener('click', function() {
-                    document.querySelectorAll('.voice-pack-item').forEach(i => i.classList.remove('selected'));
-                    this.classList.add('selected');
-                    settings.voicePack = this.dataset.voice;
-                    saveSettings();
-                });
+            // 语音包选择 - 使用事件委托
+            document.getElementById('voicePackGrid').addEventListener('click', function(e) {
+                const item = e.target.closest('.voice-pack-item');
+                if (!item) return;
+                
+                document.querySelectorAll('.voice-pack-item').forEach(i => i.classList.remove('selected'));
+                item.classList.add('selected');
+                settings.voicePack = item.dataset.voice;
+                saveSettings();
             });
 
-            // 防止双击缩放
-            let lastTouchEnd = 0;
+            // 修复：防止双击缩放 - 优化版
+            let lastTouchTime = 0;
+            let lastTouchTarget = null;
             document.addEventListener('touchend', function(e) {
                 const now = Date.now();
-                if(now - lastTouchEnd <= 300) {
+                const target = e.target;
+                
+                // 只在同一元素上的快速双击才阻止
+                if (now - lastTouchTime <= 300 && lastTouchTarget === target) {
                     e.preventDefault();
                 }
-                lastTouchEnd = now;
-            }, false);
+                lastTouchTime = now;
+                lastTouchTarget = target;
+            }, {passive: false});
+        }
+
+        // 新增：事件委托系统（修复动态生成元素点击问题）
+        function setupDelegatedEvents() {
+            // 键盘点击事件委托
+            const keyboard = document.getElementById('virtualKeyboard');
+            
+            keyboard.addEventListener('touchstart', function(e) {
+                const key = e.target.closest('.key-btn');
+                if (!key) return;
+                
+                e.preventDefault(); // 阻止默认触摸行为
+                e.stopPropagation();
+                
+                const k = key.dataset.key;
+                if (k) {
+                    key.classList.add('active');
+                    setTimeout(() => key.classList.remove('active'), 100);
+                    typeKey(k);
+                }
+            }, {passive: false});
+
+            keyboard.addEventListener('mousedown', function(e) {
+                const key = e.target.closest('.key-btn');
+                if (!key) return;
+                
+                const k = key.dataset.key;
+                if (k) {
+                    key.classList.add('active');
+                    setTimeout(() => key.classList.remove('active'), 100);
+                    typeKey(k);
+                }
+            });
+
+            // 修复：防止键盘区域触摸冒泡导致页面滚动
+            keyboard.addEventListener('touchmove', function(e) {
+                e.preventDefault();
+            }, {passive: false});
         }
 
         function bindGlobalEvents() {
             // 图片上传
             const imageInput = document.getElementById('imageInput');
-            imageInput.addEventListener('change', handleImageUpload);
+            if (imageInput) {
+                imageInput.addEventListener('change', handleImageUpload);
+            }
 
-            // 拖拽上传
+            // 拖拽上传 - 修复事件绑定
             const uploadArea = document.getElementById('uploadArea');
             if(uploadArea) {
                 ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -1312,28 +1426,76 @@
                 uploadArea.addEventListener('drop', handleDrop, false);
             }
 
-            // 系统键盘输入
+            // 系统键盘输入 - 修复焦点问题
             const systemInput = document.getElementById('systemInput');
-            systemInput.addEventListener('input', handleSystemInput);
-            systemInput.addEventListener('focus', handleSystemFocus);
-            systemInput.addEventListener('blur', handleSystemBlur);
+            if (systemInput) {
+                systemInput.addEventListener('input', handleSystemInput);
+                systemInput.addEventListener('focus', handleSystemFocus);
+                systemInput.addEventListener('blur', handleSystemBlur);
+            }
 
-            // 防止iOS橡皮筋效果
-            document.addEventListener('touchmove', function(e) {
-                if(e.target.closest('.keyboard-wrapper')) return;
-                if(document.getElementById('app').classList.contains('no-scroll')) {
+            // 修复：iOS橡皮筋效果 - 更精确的控制
+            let appElement = document.getElementById('app');
+            let startY = 0;
+            
+            appElement.addEventListener('touchstart', function(e) {
+                startY = e.touches[0].clientY;
+            }, {passive: true});
+
+            appElement.addEventListener('touchmove', function(e) {
+                const currentY = e.touches[0].clientY;
+                const deltaY = currentY - startY;
+                
+                // 只有在顶部向下拉或底部向上拉时才阻止
+                const isAtTop = appElement.scrollTop <= 0;
+                const isAtBottom = appElement.scrollHeight - appElement.scrollTop <= appElement.clientHeight + 1;
+                
+                if ((isAtTop && deltaY > 0) || (isAtBottom && deltaY < 0)) {
+                    if (e.target.closest('.keyboard-wrapper')) return; // 键盘区域不阻止
                     e.preventDefault();
                 }
-            }, { passive: false });
+            }, {passive: false});
 
-            // 键盘事件
-            document.addEventListener('keydown', handleKeyDown);
+            // 键盘事件 - 修复重复触发问题
+            let lastKeyTime = 0;
+            document.addEventListener('keydown', function(e) {
+                const now = Date.now();
+                if (now - lastKeyTime < 50) return; // 防抖
+                lastKeyTime = now;
+                
+                if(document.getElementById('studyView').classList.contains('active')) {
+                    if(e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+                        e.preventDefault();
+                        typeKey(e.key.toLowerCase());
+                    } else if(e.key === 'Backspace') {
+                        e.preventDefault();
+                        backspace();
+                    } else if(e.key === 'Enter') {
+                        e.preventDefault();
+                        checkWord();
+                    }
+                }
+            });
 
-            // 视口变化（处理键盘弹出）
+            // 视口变化（处理键盘弹出）- 修复：使用更可靠的检测
             if(window.visualViewport) {
                 window.visualViewport.addEventListener('resize', handleViewportChange);
             }
             window.addEventListener('resize', handleViewportChange);
+
+            // 修复：点击外部关闭键盘（除了输入区域和键盘本身）
+            document.addEventListener('touchstart', function(e) {
+                if (!keyboardVisible) return;
+                
+                const target = e.target;
+                const isInputArea = target.closest('#inputArea');
+                const isKeyboard = target.closest('#virtualKeyboard');
+                const isSystemInput = target === document.getElementById('systemInput');
+                
+                if (!isInputArea && !isKeyboard && !isSystemInput && settings.defaultKeyboard === 'virtual') {
+                    hideKeyboard();
+                }
+            }, {passive: true});
         }
 
         function preventDefaults(e) {
@@ -1349,57 +1511,50 @@
 
         function handleSystemFocus() {
             if(settings.defaultKeyboard === 'virtual') {
-                document.getElementById('systemInput').blur();
-                showKeyboard();
+                // 如果设置是虚拟键盘，但系统键盘被触发，则隐藏系统键盘并显示虚拟键盘
+                setTimeout(() => {
+                    document.getElementById('systemInput').blur();
+                    showKeyboard();
+                }, 10);
             } else {
-                // 系统键盘弹出时隐藏底部导航
+                // 系统键盘弹出时隐藏底部导航和虚拟键盘
                 document.getElementById('bottomNav').classList.add('hidden');
+                hideKeyboard();
             }
         }
 
         function handleSystemBlur() {
             document.getElementById('bottomNav').classList.remove('hidden');
+            // 修复：如果当前是虚拟键盘模式，重新聚焦可能导致循环，需要延迟检查
+            setTimeout(() => {
+                if (settings.defaultKeyboard === 'virtual' && document.activeElement !== document.getElementById('systemInput')) {
+                    // 不做任何操作，保持键盘关闭状态直到用户再次点击输入区域
+                }
+            }, 100);
         }
 
         function handleViewportChange() {
-            // 处理键盘弹出时的视口变化
+            // 修复：使用 visualViewport API 更精确计算
             if(window.visualViewport) {
                 const height = window.visualViewport.height;
-                document.documentElement.style.height = height + 'px';
-                document.body.style.height = height + 'px';
-            }
-        }
-
-        function handleKeyDown(e) {
-            // 物理键盘支持
-            if(document.getElementById('studyView').classList.contains('active')) {
-                if(e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
-                    typeKey(e.key.toLowerCase());
-                } else if(e.key === 'Backspace') {
-                    backspace();
-                } else if(e.key === 'Enter') {
-                    checkWord();
+                const offset = window.innerHeight - height;
+                
+                // 调整 app 高度防止键盘遮挡
+                const app = document.getElementById('app');
+                if (offset > 100) { // 键盘可能弹出
+                    app.style.height = height + 'px';
+                    // 滚动当前输入区域到可视范围
+                    const inputArea = document.getElementById('inputArea');
+                    if (inputArea) {
+                        const rect = inputArea.getBoundingClientRect();
+                        if (rect.bottom > height) {
+                            app.scrollBy({top: rect.bottom - height + 20, behavior: 'smooth'});
+                        }
+                    }
+                } else {
+                    app.style.height = '100%';
                 }
             }
-        }
-
-        function bindKeyboardEvents() {
-            const keys = document.querySelectorAll('.key-btn[data-key]');
-            keys.forEach(key => {
-                const handlePress = (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const k = key.dataset.key;
-                    if(k) {
-                        key.classList.add('active');
-                        setTimeout(() => key.classList.remove('active'), 100);
-                        typeKey(k);
-                    }
-                };
-
-                key.addEventListener('touchstart', handlePress, {passive: false});
-                key.addEventListener('mousedown', handlePress);
-            });
         }
 
         function loadSettings() {
@@ -1410,6 +1565,7 @@
             updateToggle('autoSpeakToggle', settings.autoSpeak);
             updateToggle('autoTranslateToggle', settings.autoTranslate);
 
+            // 修复：语音包选择状态
             document.querySelectorAll('.voice-pack-item').forEach(item => {
                 item.classList.toggle('selected', item.dataset.voice === settings.voicePack);
             });
@@ -1429,6 +1585,7 @@
             settings[key] = !settings[key];
             safeStorageSet('wm_settings', settings);
             loadSettings();
+            showToast(key + ' 已' + (settings[key] ? '开启' : '关闭'), 'success');
         }
 
         function saveSettings() {
@@ -1444,6 +1601,13 @@
             hideKeyboard();
         }
 
+        // 修复：关闭设置模态框的两种方式
+        function closeSettingsModal(e) {
+            if(e.target === e.currentTarget) { // 确保是点击遮罩层本身
+                closeSettings();
+            }
+        }
+
         function closeSettings() {
             document.getElementById('settingsModal').classList.remove('active');
         }
@@ -1455,13 +1619,15 @@
 
             toast.textContent = message;
             toast.className = 'toast ' + type;
-
+            
             // 强制重绘
             void toast.offsetWidth;
-
+            
             toast.classList.add('show');
 
-            setTimeout(() => {
+            // 修复：防止重复触发
+            clearTimeout(toast.hideTimeout);
+            toast.hideTimeout = setTimeout(() => {
                 toast.classList.remove('show');
             }, 3000);
         }
@@ -1473,10 +1639,18 @@
             }
         }
 
+        // 修复：视图切换逻辑，增加状态检查和动画优化
+        let viewSwitching = false;
         function showView(viewName) {
-            // 防止重复切换
+            if (viewSwitching) return; // 防止重复切换
+            viewSwitching = true;
+            
+            // 防止重复切换到相同视图
             const currentView = document.querySelector('.view.active');
-            if(currentView && currentView.id === viewName + 'View') return;
+            if(currentView && currentView.id === viewName + 'View') {
+                viewSwitching = false;
+                return;
+            }
 
             document.querySelectorAll('.view').forEach(v => {
                 v.classList.remove('active');
@@ -1487,7 +1661,11 @@
 
             const targetView = document.getElementById(viewName + 'View');
             if(targetView) {
-                targetView.classList.add('active');
+                // 修复：使用 requestAnimationFrame 确保动画流畅
+                requestAnimationFrame(() => {
+                    targetView.classList.add('active');
+                    viewSwitching = false;
+                });
             }
 
             const navBtn = document.querySelector('.nav-btn[data-view="' + viewName + '"]');
@@ -1497,32 +1675,33 @@
 
             hideKeyboard();
 
-            // 刷新视图数据
-            switch(viewName) {
-                case 'library':
-                    renderLibraryTree();
-                    break;
-                case 'add':
-                    updateLibrarySelect();
-                    break;
-                case 'ocr':
-                    updateOcrLibrarySelect();
-                    break;
-                case 'study':
-                    updateStats();
-                    const lib = findLibrary(currentLibId);
-                    const wordDisplay = document.getElementById('wordDisplay');
-                    if(lib && lib.node.words.length && (!wordDisplay || !wordDisplay.textContent)) {
-                        loadWord(currentIdx);
-                    }
-                    break;
-                case 'memory':
-                    renderMemoryList('today');
-                    break;
-            }
-
-            // 滚动到顶部
-            document.getElementById('app').scrollTop = 0;
+            // 修复：延迟刷新视图数据，确保DOM已切换
+            setTimeout(() => {
+                switch(viewName) {
+                    case 'library':
+                        renderLibraryTree();
+                        break;
+                    case 'add':
+                        updateLibrarySelect();
+                        break;
+                    case 'ocr':
+                        updateOcrLibrarySelect();
+                        break;
+                    case 'study':
+                        updateStats();
+                        const lib = findLibrary(currentLibId);
+                        const wordDisplay = document.getElementById('wordDisplay');
+                        if(lib && lib.node.words.length && (!wordDisplay || !wordDisplay.textContent)) {
+                            loadWord(currentIdx);
+                        }
+                        break;
+                    case 'memory':
+                        renderMemoryList('today');
+                        break;
+                }
+                // 滚动到顶部
+                document.getElementById('app').scrollTop = 0;
+            }, 50);
         }
 
         function showMemoryView() {
@@ -1587,8 +1766,22 @@
                 }
                 scheduleHtml += '</div>';
 
-                card.innerHTML = '<div class="flex justify-between items-start"><div><div class="font-bold text-lg">' + escapeHtml(word.w) + '</div><div class="text-sm text-cyan-300/70">' + escapeHtml(word.d) + '</div></div><div class="flex gap-2"><button onclick="speak('' + word.w + '')" class="p-2 rounded-lg bg-white/5 btn-click-effect"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg></button><button onclick="startReview('' + word.w + '')" class="px-3 py-2 rounded-lg bg-cyan-500/20 text-cyan-400 text-sm btn-click-effect">复习</button></div></div>' + scheduleHtml;
+                // 修复：使用更安全的事件绑定方式
+                card.innerHTML = '<div class="flex justify-between items-start"><div><div class="font-bold text-lg">' + escapeHtml(word.w) + '</div><div class="text-sm text-cyan-300/70">' + escapeHtml(word.d) + '</div></div><div class="flex gap-2"><button class="p-2 rounded-lg bg-white/5 btn-click-effect speak-btn" data-word="' + word.w + '"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg></button><button class="px-3 py-2 rounded-lg bg-cyan-500/20 text-cyan-400 text-sm btn-click-effect review-btn" data-word="' + word.w + '" data-idx="' + word.idx + '">复习</button></div></div>' + scheduleHtml;
+                
                 container.appendChild(card);
+            });
+
+            // 修复：使用事件委托处理动态按钮点击
+            container.addEventListener('click', function(e) {
+                const speakBtn = e.target.closest('.speak-btn');
+                const reviewBtn = e.target.closest('.review-btn');
+                
+                if (speakBtn) {
+                    speak(speakBtn.dataset.word);
+                } else if (reviewBtn) {
+                    startReview(reviewBtn.dataset.word, parseInt(reviewBtn.dataset.idx));
+                }
             });
         }
 
@@ -1598,15 +1791,20 @@
             return div.innerHTML;
         }
 
-        function startReview(word) {
-            const lib = findLibrary(currentLibId);
-            if(!lib) return;
-            const idx = lib.node.words.findIndex(w => w.w === word);
-            if(idx >= 0) {
+        // 修复：startReview 函数改进
+        function startReview(word, idx) {
+            if (typeof idx === 'number' && idx >= 0) {
                 currentIdx = idx;
-                showView('study');
-                loadWord(idx);
+            } else {
+                const lib = findLibrary(currentLibId);
+                if(!lib) return;
+                const foundIdx = lib.node.words.findIndex(w => w.w === word);
+                if(foundIdx >= 0) {
+                    currentIdx = foundIdx;
+                }
             }
+            showView('study');
+            loadWord(currentIdx);
         }
 
         function updateMemoryStats() {
@@ -1654,7 +1852,7 @@
                 if(mem.currentStage < mem.schedule.length) {
                     mem.nextReview = Date.now() + mem.schedule[mem.currentStage].interval * 60 * 1000;
                 } else {
-                    mem.nextReview = null;
+                    mem.nextReview = null; // 完成所有阶段
                 }
             }
 
@@ -1799,7 +1997,7 @@
                         } catch(err) {
                             def = '(翻译失败)';
                         }
-                        await new Promise(r => setTimeout(r, 300));
+                        await new Promise(r => setTimeout(r, 300)); // 防请求过快
                     }
 
                     translatedLines.push(word + ' ' + def);
@@ -1833,7 +2031,9 @@
             }
         }
 
-        function triggerImageUpload() {
+        // 修复：添加事件参数防止冒泡
+        function triggerImageUpload(e) {
+            if (e) e.stopPropagation();
             const input = document.getElementById('imageInput');
             if(input) input.click();
         }
@@ -1854,7 +2054,7 @@
                     showLoading(false);
                 }
             }
-            e.target.value = '';
+            e.target.value = ''; // 修复：允许重复选择相同文件
         }
 
         async function processImage(file) {
@@ -1873,6 +2073,7 @@
                             const canvas = document.createElement('canvas');
                             const ctx = canvas.getContext('2d');
 
+                            // 修复：限制图片尺寸防止内存问题
                             const maxSize = 1200;
                             let width = img.width, height = img.height;
                             if(width > maxSize || height > maxSize) {
@@ -1887,6 +2088,7 @@
                             canvas.width = width;
                             canvas.height = height;
 
+                            // 增加对比度提高识别率
                             ctx.filter = 'contrast(1.2) brightness(1.1)';
                             ctx.drawImage(img, 0, 0, width, height);
 
@@ -1953,23 +2155,38 @@
             }
 
             const words = extractWords(text);
+            
+            // 修复：使用 innerHTML 和事件委托重新渲染单词列表
             const wordsContainer = document.getElementById('ocrWords');
             if(wordsContainer) {
-                wordsContainer.innerHTML = '';
-
-                words.forEach((word, idx) => {
-                    const span = document.createElement('span');
-                    span.className = 'ocr-word';
-                    span.textContent = word;
-                    span.addEventListener('click', () => selectOcrWord(word, span));
-                    wordsContainer.appendChild(span);
-                });
+                wordsContainer.innerHTML = words.map(word => 
+                    '<span class="ocr-word" data-word="' + word + '">' + word + '</span>'
+                ).join('');
+                
+                // 事件委托
+                wordsContainer.onclick = function(e) {
+                    const wordEl = e.target.closest('.ocr-word');
+                    if (!wordEl) return;
+                    
+                    // 移除其他选中状态
+                    wordsContainer.querySelectorAll('.ocr-word').forEach(el => el.classList.remove('selected'));
+                    wordEl.classList.add('selected');
+                    
+                    const word = wordEl.dataset.word;
+                    ocrSelectedWord = word;
+                    
+                    const wordInput = document.getElementById('ocrWordInput');
+                    if(wordInput) wordInput.value = word;
+                    
+                    autoTranslateOcrWord(word);
+                };
             }
 
             generateSmartSuggestions(words);
 
-            if(words.length > 0 && wordsContainer) {
-                selectOcrWord(words[0], wordsContainer.children[0]);
+            // 自动选择第一个单词
+            if(words.length > 0 && wordsContainer && wordsContainer.children[0]) {
+                wordsContainer.children[0].click();
             }
         }
 
@@ -2034,15 +2251,22 @@
                 suggestionArray.forEach(sug => {
                     const chip = document.createElement('div');
                     chip.className = 'suggestion-chip';
+                    chip.setAttribute('data-word', sug.word);
                     chip.innerHTML = '<span class="text-xs text-cyan-300/70 mr-1">' + sug.reason + '</span><span class="font-bold">' + sug.word + '</span>';
-                    chip.addEventListener('click', () => {
-                        const wordInput = document.getElementById('ocrWordInput');
-                        if(wordInput) wordInput.value = sug.word;
-                        ocrSelectedWord = sug.word;
-                        autoTranslateOcrWord(sug.word);
-                    });
                     listDiv.appendChild(chip);
                 });
+
+                // 事件委托处理建议点击
+                listDiv.onclick = function(e) {
+                    const chip = e.target.closest('.suggestion-chip');
+                    if (!chip) return;
+                    
+                    const word = chip.dataset.word;
+                    const wordInput = document.getElementById('ocrWordInput');
+                    if(wordInput) wordInput.value = word;
+                    ocrSelectedWord = word;
+                    autoTranslateOcrWord(word);
+                };
             } else {
                 suggestionsDiv.classList.add('hidden');
             }
@@ -2050,7 +2274,7 @@
 
         async function autoTranslateOcrWord(word) {
             const defInput = document.getElementById('ocrDefInput');
-            if(!defInput || defInput.value) return;
+            if(!defInput || defInput.value) return; // 已有值不覆盖
 
             try {
                 const translation = await translateText(word);
@@ -2075,17 +2299,6 @@
                 }
             }
             return matrix[b.length][a.length];
-        }
-
-        function selectOcrWord(word, element) {
-            document.querySelectorAll('.ocr-word').forEach(el => el.classList.remove('selected'));
-            element.classList.add('selected');
-
-            const wordInput = document.getElementById('ocrWordInput');
-            if(wordInput) wordInput.value = word;
-
-            ocrSelectedWord = word;
-            autoTranslateOcrWord(word);
         }
 
         function updateOcrLibrarySelect() {
@@ -2135,6 +2348,12 @@
 
             const lib = findLibrary(libId);
             if(lib) {
+                // 检查重复
+                if (lib.node.words.some(w => w.w === word)) {
+                    showToast('该单词已存在', 'error');
+                    return;
+                }
+                
                 lib.node.words.push({
                     w: word,
                     d: def || '(图片识别)',
@@ -2210,6 +2429,7 @@
             updateMemoryStats();
         }
 
+        // 修复：渲染函数改进，增加事件委托
         function renderLibraryTree(node, container, level) {
             node = node || libraryRoot;
             container = container || document.getElementById('libraryTree');
@@ -2229,18 +2449,27 @@
             const subText = isFolder ? ((node.children ? node.children.length : 0) + ' 个子项') : ((node.words ? node.words.length : 0) + ' 个单词');
             const nameClass = node.id === currentLibId ? 'text-cyan-400' : 'text-white';
 
+            // 修复：使用 data 属性存储 ID，避免内联 onclick 作用域问题
+            item.setAttribute('data-node-id', node.id);
+            item.setAttribute('data-node-type', node.type);
+            
             let buttons = '';
             if(isFolder) {
-                buttons += '<button onclick="event.stopPropagation(); createInFolder('' + node.id + '')" class="px-3 py-1 rounded-lg bg-cyan-500/20 text-cyan-400 text-xs mr-2 btn-click-effect">+</button>';
+                buttons += '<button class="px-3 py-1 rounded-lg bg-cyan-500/20 text-cyan-400 text-xs mr-2 btn-click-effect create-btn" data-action="create" data-id="' + node.id + '">+</button>';
             }
             if(node.id !== 'root') {
-                buttons += '<button onclick="event.stopPropagation(); deleteNode('' + node.id + '')" class="px-3 py-1 rounded-lg bg-red-500/20 text-red-400 text-xs btn-click-effect">删</button>';
+                buttons += '<button class="px-3 py-1 rounded-lg bg-red-500/20 text-red-400 text-xs btn-click-effect delete-btn" data-action="delete" data-id="' + node.id + '">删</button>';
             }
 
-            item.innerHTML = '<div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center mr-3 text-xl">' + icon + '</div><div class="flex-1 min-w-0"><div class="font-bold ' + nameClass + ' truncate">' + escapeHtml(node.name) + '</div><div class="text-xs text-slate-400">' + subText + '</div></div>' + buttons;
+            item.innerHTML = '<div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center mr-3 text-xl select-none">' + icon + '</div><div class="flex-1 min-w-0"><div class="font-bold ' + nameClass + ' truncate">' + escapeHtml(node.name) + '</div><div class="text-xs text-slate-400">' + subText + '</div></div><div class="flex items-center">' + buttons + '</div>';
 
-            item.addEventListener('click', () => {
-                if(!isFolder) switchLibrary(node.id);
+            // 修复：使用事件监听器代替 onclick
+            item.addEventListener('click', function(e) {
+                if (e.target.closest('button')) return; // 如果点击的是按钮，不触发切换
+                
+                if (!isFolder) {
+                    switchLibrary(node.id);
+                }
             });
 
             div.appendChild(item);
@@ -2248,6 +2477,23 @@
 
             if(isFolder && node.children) {
                 node.children.forEach(child => renderLibraryTree(child, container, level + 1));
+            }
+            
+            // 事件委托：在容器级别处理按钮点击（只在第一次调用时绑定）
+            if (level === 0) {
+                container.addEventListener('click', function(e) {
+                    const btn = e.target.closest('button');
+                    if (!btn) return;
+                    
+                    const action = btn.dataset.action;
+                    const id = btn.dataset.id;
+                    
+                    if (action === 'create') {
+                        createInFolder(id);
+                    } else if (action === 'delete') {
+                        deleteNode(id);
+                    }
+                });
             }
         }
 
@@ -2378,17 +2624,23 @@
             area.innerHTML = '';
             for(let i = 0; i < count; i++) {
                 const slot = document.createElement('div');
-                slot.className = 'letter-slot';
+                slot.className = 'letter-slot' + (currentInput[i] ? ' filled' : '');
                 slot.textContent = currentInput[i] || '';
-                if(currentInput[i]) slot.classList.add('filled');
                 area.appendChild(slot);
             }
         }
 
-        function onInputAreaClick() {
+        // 修复：输入区域点击处理
+        function onInputAreaClick(e) {
+            if (e) e.stopPropagation();
+            
             if(settings.defaultKeyboard === 'system') {
                 const input = document.getElementById('systemInput');
-                if(input) input.focus();
+                if(input) {
+                    input.focus();
+                    // 修复：iOS 需要延迟才能正确聚焦
+                    setTimeout(() => input.focus(), 100);
+                }
             } else {
                 showKeyboard();
             }
@@ -2403,9 +2655,15 @@
             if(app) app.classList.add('no-scroll');
             if(bottomNav) bottomNav.classList.add('hidden');
 
-            if(/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-                document.body.classList.add('ios-locked');
-            }
+            keyboardVisible = true;
+            
+            // 修复：调整视口确保输入区域可见
+            setTimeout(() => {
+                const inputArea = document.getElementById('inputArea');
+                if(inputArea) {
+                    inputArea.scrollIntoView({behavior: 'smooth', block: 'center'});
+                }
+            }, 300);
         }
 
         function hideKeyboard() {
@@ -2417,13 +2675,22 @@
             if(app) app.classList.remove('no-scroll');
             if(bottomNav) bottomNav.classList.remove('hidden');
 
-            document.body.classList.remove('ios-locked');
+            keyboardVisible = false;
 
             const systemInput = document.getElementById('systemInput');
             if(systemInput) systemInput.blur();
         }
 
-        function toggleSymbolMode() {
+        // 修复：阻止事件冒泡的辅助函数
+        function preventBubbling(e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }
+
+        function toggleSymbolMode(e) {
+            preventBubbling(e);
             isSymbolMode = !isSymbolMode;
             const letterKb = document.getElementById('letterKeyboard');
             const symbolKb = document.getElementById('symbolKeyboard');
@@ -2432,7 +2699,8 @@
             if(symbolKb) symbolKb.classList.toggle('hidden', !isSymbolMode);
         }
 
-        function toggleShift() {
+        function toggleShift(e) {
+            preventBubbling(e);
             isUpperCase = !isUpperCase;
             const shiftBtn = document.getElementById('shiftBtn');
             if(shiftBtn) shiftBtn.classList.toggle('active', isUpperCase);
@@ -2464,7 +2732,9 @@
             }
         }
 
-        function backspace() {
+        // 修复：backspace 需要阻止冒泡防止关闭键盘
+        function backspace(e) {
+            preventBubbling(e);
             if(currentInput.length > 0) {
                 currentInput.pop();
                 updateInputDisplay();
@@ -2497,7 +2767,10 @@
 
             const word = lib.node.words[currentIdx];
 
-            document.querySelectorAll('.letter-slot').forEach(s => s.classList.add('correct'));
+            // 修复：动画优化
+            const slots = document.querySelectorAll('.letter-slot');
+            slots.forEach(s => s.classList.add('correct'));
+            
             mastered.add(word.w);
             safeStorageSet('wm_mastered', [...mastered]);
             streak++;
@@ -2513,10 +2786,11 @@
 
             if(settings.vibrate && navigator.vibrate) navigator.vibrate([50, 100, 50]);
 
+            // 修复：延迟下一个单词，让用户看到成功状态
             setTimeout(() => {
                 if(fb) fb.style.opacity = '0';
                 nextWord();
-            }, 1500);
+            }, 1200);
         }
 
         function handleError() {
@@ -2525,7 +2799,8 @@
 
             const word = lib.node.words[currentIdx];
 
-            document.querySelectorAll('.letter-slot').forEach((s, i) => {
+            const slots = document.querySelectorAll('.letter-slot');
+            slots.forEach((s, i) => {
                 if(currentInput[i] !== word.w[i]) s.classList.add('wrong');
             });
 
@@ -2542,6 +2817,7 @@
 
             if(settings.vibrate && navigator.vibrate) navigator.vibrate(200);
 
+            // 修复：延迟重置，让用户看清错误
             setTimeout(() => {
                 if(fb) fb.style.opacity = '0';
                 currentInput = [];
@@ -2560,6 +2836,7 @@
 
             window.speechSynthesis.cancel();
 
+            // 修复：延迟播放确保不冲突
             setTimeout(() => {
                 const u = new SpeechSynthesisUtterance(text);
 
@@ -2579,6 +2856,7 @@
                         u.rate = 0.8;
                 }
 
+                // 修复：确保语音列表已加载
                 const voices = window.speechSynthesis.getVoices();
                 const voice = voices.find(v => {
                     if(settings.voicePack === 'uk') return v.lang.includes('GB');
@@ -2588,7 +2866,7 @@
                 if(voice) u.voice = voice;
 
                 window.speechSynthesis.speak(u);
-            }, 50);
+            }, 100);
         }
 
         function speakCurrent() {
@@ -2692,6 +2970,12 @@
 
             const lib = findLibrary(libId);
             if(lib) {
+                // 检查重复
+                if (lib.node.words.some(word => word.w === w)) {
+                    showToast('该单词已存在', 'error');
+                    return;
+                }
+                
                 lib.node.words.push({w: w, d: d, memory: null});
                 saveLibrary();
                 wordInput.value = '';
@@ -2713,6 +2997,7 @@
             const libId = libSelect.value;
             const lines = bulkTextarea.value.trim().split('\n');
             let added = 0;
+            let duplicates = 0;
 
             const lib = findLibrary(libId);
             if(!lib) return;
@@ -2721,6 +3006,13 @@
                 const parts = line.trim().split(/\s+/);
                 if(parts.length >= 1 && parts[0]) {
                     const w = parts[0].toLowerCase();
+                    
+                    // 检查重复
+                    if (lib.node.words.some(word => word.w === w)) {
+                        duplicates++;
+                        continue;
+                    }
+                    
                     let d = parts.slice(1).join(' ');
 
                     if(!d && settings.autoTranslate) {
@@ -2744,25 +3036,34 @@
                 bulkTextarea.value = '';
                 updateStats();
                 updateLibrarySelect();
-                showToast('成功添加 ' + added + ' 个单词', 'success');
+                showToast('成功添加 ' + added + ' 个单词' + (duplicates > 0 ? '，跳过 ' + duplicates + ' 个重复' : ''), 'success');
                 showView('study');
+            } else if (duplicates > 0) {
+                showToast('所有单词已存在，未添加', 'error');
             } else {
                 showToast('没有成功添加的单词');
             }
         }
 
+        // 修复：系统输入处理防抖
+        let inputDebounceTimer;
         function handleSystemInput(e) {
+            clearTimeout(inputDebounceTimer);
+            
             const val = e.target.value;
             const lib = findLibrary(currentLibId);
             if(!lib || !lib.node.words.length || !lib.node.words[currentIdx]) return;
 
             const word = lib.node.words[currentIdx].w;
+            
+            // 修复：防止输入过长
             currentInput = val.split('').slice(0, word.length);
+            
             updateInputDisplay();
             renderSlots(word.length);
 
             if(currentInput.length >= word.length) {
-                setTimeout(checkWord, 200);
+                inputDebounceTimer = setTimeout(checkWord, 200);
             }
         }
 
@@ -2852,6 +3153,16 @@
         function showCreateLibDialog() {
             createInFolder('root');
         }
+
+        // 修复：页面可见性变化时恢复状态
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') {
+                // 确保语音合成状态正确
+                if (window.speechSynthesis) {
+                    window.speechSynthesis.cancel();
+                }
+            }
+        });
     </script>
 </body>
 </html>
