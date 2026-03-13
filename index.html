@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#0a0a0a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>WordMaster</title>
+    <title>WordMaster Pro - 智能单词学习</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src='https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js'></script>
     <style>
@@ -16,7 +16,7 @@
             user-select: none;
             box-sizing: border-box;
         }
-        
+
         html, body {
             margin: 0;
             padding: 0;
@@ -24,14 +24,15 @@
             height: 100%;
             overflow: hidden;
             position: fixed;
+            touch-action: manipulation;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(180deg, #0a1628 0%, #1a3a5c 50%, #0d2137 100%);
             color: white;
         }
-        
+
         #app {
             width: 100%;
             height: 100%;
@@ -39,9 +40,10 @@
             overflow-x: hidden;
             -webkit-overflow-scrolling: touch;
             position: relative;
-            padding-bottom: 20px;
+            padding-bottom: 100px;
+            overscroll-behavior: none;
         }
-        
+
         .bg-glow {
             position: fixed;
             top: 50%;
@@ -53,14 +55,14 @@
             pointer-events: none;
             z-index: 0;
         }
-        
+
         .glass {
             background: rgba(255, 255, 255, 0.08);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.15);
         }
-        
+
         .letter-slot {
             transition: all 0.2s;
             background: rgba(0, 0, 0, 0.3);
@@ -74,8 +76,9 @@
             justify-content: center;
             font-size: 20px;
             font-weight: bold;
+            flex-shrink: 0;
         }
-        
+
         .letter-slot.filled { 
             background: rgba(0, 150, 255, 0.2); 
             border-color: rgba(0, 200, 255, 0.8);
@@ -93,15 +96,14 @@
             background: rgba(255, 51, 102, 0.2);
             animation: shake 0.5s;
         }
-        
+
         @keyframes shake {
             10%, 90% { transform: translate3d(-2px, 0, 0); }
             20%, 80% { transform: translate3d(4px, 0, 0); }
             30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
             40%, 60% { transform: translate3d(6px, 0, 0); }
         }
-        
-        /* 键盘样式 - 修复布局 */
+
         .keyboard-wrapper {
             position: fixed;
             bottom: 0;
@@ -113,12 +115,13 @@
             z-index: 1000;
             transform: translateY(100%);
             transition: transform 0.3s ease;
+            max-height: 50vh;
         }
-        
+
         .keyboard-wrapper.active {
             transform: translateY(0);
         }
-        
+
         .keyboard-row {
             display: flex;
             justify-content: center;
@@ -126,7 +129,7 @@
             margin-bottom: 6px;
             padding: 0 4px;
         }
-        
+
         .key-btn {
             flex: 1;
             max-width: 36px;
@@ -142,38 +145,23 @@
             justify-content: center;
             transition: all 0.1s;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            -webkit-touch-callout: none;
+            user-select: none;
+            touch-action: manipulation;
         }
-        
-        .key-btn:active {
+
+        .key-btn:active, .key-btn.active {
             background: rgba(0, 200, 255, 0.3);
             transform: scale(0.95);
         }
-        
-        .key-btn.wide {
-            max-width: 50px;
-            font-size: 14px;
-        }
-        
-        .key-btn.extra-wide {
-            max-width: 80px;
-            font-size: 13px;
-        }
-        
-        .key-btn.space {
-            max-width: 200px;
-            font-size: 12px;
-            background: rgba(0, 150, 255, 0.15);
-        }
-        
-        .key-btn.function {
-            background: rgba(100, 150, 200, 0.25);
-        }
-        
-        .key-btn.shift.active {
-            background: rgba(255, 200, 0, 0.3);
-            color: #ffd700;
-        }
-        
+
+        .key-btn.wide { max-width: 50px; font-size: 14px; }
+        .key-btn.extra-wide { max-width: 80px; font-size: 13px; }
+        .key-btn.space { max-width: 200px; font-size: 12px; background: rgba(0, 150, 255, 0.15); }
+        .key-btn.function { background: rgba(100, 150, 200, 0.25); }
+        .key-btn.shift.active { background: rgba(255, 200, 0, 0.3); color: #ffd700; }
+
         .input-area {
             background: rgba(0, 0, 0, 0.4);
             border: 2px solid rgba(0, 200, 255, 0.3);
@@ -188,15 +176,17 @@
             color: #00ffff;
             cursor: pointer;
             padding: 10px;
+            position: relative;
         }
-        
+
         .hidden-input {
             position: absolute;
             left: -9999px;
             opacity: 0;
+            width: 1px;
+            height: 1px;
         }
-        
-        /* 图片上传区域 */
+
         .image-upload-area {
             border: 2px dashed rgba(0, 200, 255, 0.4);
             border-radius: 16px;
@@ -205,20 +195,21 @@
             cursor: pointer;
             transition: all 0.3s;
             background: rgba(0, 0, 0, 0.2);
+            touch-action: manipulation;
         }
-        
+
         .image-upload-area:hover, .image-upload-area.dragover {
             border-color: #00ffff;
             background: rgba(0, 200, 255, 0.1);
         }
-        
+
         .uploaded-image {
             max-width: 100%;
             max-height: 200px;
             border-radius: 12px;
             margin-top: 10px;
         }
-        
+
         .ocr-result {
             background: rgba(0, 0, 0, 0.4);
             border-radius: 12px;
@@ -226,7 +217,7 @@
             margin-top: 15px;
             border: 1px solid rgba(0, 200, 255, 0.3);
         }
-        
+
         .ocr-word {
             display: inline-block;
             padding: 4px 12px;
@@ -236,18 +227,19 @@
             font-size: 14px;
             cursor: pointer;
             transition: all 0.2s;
+            touch-action: manipulation;
         }
-        
-        .ocr-word:hover {
+
+        .ocr-word:hover, .ocr-word:active {
             background: rgba(0, 200, 255, 0.4);
             transform: scale(1.05);
         }
-        
+
         .ocr-word.selected {
             background: rgba(0, 255, 136, 0.4);
             border: 1px solid #00ff88;
         }
-        
+
         .loading-spinner {
             width: 40px;
             height: 40px;
@@ -257,11 +249,9 @@
             animation: spin 1s linear infinite;
             margin: 20px auto;
         }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
         .confidence-badge {
             display: inline-block;
             padding: 2px 8px;
@@ -269,11 +259,11 @@
             font-size: 11px;
             margin-left: 8px;
         }
-        
+
         .confidence-high { background: rgba(0, 255, 136, 0.3); color: #00ff88; }
         .confidence-medium { background: rgba(255, 200, 0, 0.3); color: #ffd700; }
         .confidence-low { background: rgba(255, 100, 100, 0.3); color: #ff6464; }
-        
+
         .suggestion-chip {
             display: inline-flex;
             align-items: center;
@@ -285,23 +275,30 @@
             font-size: 14px;
             cursor: pointer;
             transition: all 0.2s;
+            touch-action: manipulation;
         }
-        
-        .suggestion-chip:hover {
+
+        .suggestion-chip:hover, .suggestion-chip:active {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0, 200, 255, 0.3);
         }
-        
+
         .view {
             display: none;
             padding: 16px;
-            padding-bottom: 100px;
+            padding-bottom: 120px;
         }
-        
+
         .view.active {
             display: block;
+            animation: fadeIn 0.3s ease;
         }
-        
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .bottom-nav {
             position: fixed;
             bottom: 0;
@@ -314,8 +311,9 @@
             justify-content: space-around;
             padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
             z-index: 100;
+            transform: translateZ(0);
         }
-        
+
         .nav-btn {
             display: flex;
             flex-direction: column;
@@ -325,63 +323,314 @@
             color: rgba(255,255,255,0.5);
             font-size: 12px;
             transition: all 0.2s;
+            background: none;
+            border: none;
+            cursor: pointer;
+            touch-action: manipulation;
         }
-        
-        .nav-btn.active {
-            color: #00ffff;
-        }
-        
-        .nav-btn svg {
-            width: 24px;
-            height: 24px;
-        }
-        
-        /* 修复滚动冲突 */
+
+        .nav-btn.active { color: #00ffff; }
+        .nav-btn svg { width: 24px; height: 24px; }
+
         .no-scroll {
             overflow: hidden !important;
             touch-action: none !important;
         }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, rgba(20,40,70,0.95), rgba(10,20,40,0.98));
+            border: 1px solid rgba(0,200,255,0.3);
+            border-radius: 24px;
+            width: 100%;
+            max-width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+            transform: scale(0.9);
+            transition: transform 0.3s;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+
+        .translation-result {
+            background: rgba(0,200,255,0.1);
+            border-left: 3px solid #00ffff;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 0 12px 12px 0;
+        }
+
+        .voice-pack-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .voice-pack-item {
+            padding: 12px;
+            background: rgba(255,255,255,0.05);
+            border: 2px solid transparent;
+            border-radius: 12px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .voice-pack-item:hover, .voice-pack-item.selected {
+            border-color: #00ffff;
+            background: rgba(0,200,255,0.15);
+        }
+
+        .memory-card {
+            background: linear-gradient(135deg, rgba(0,100,200,0.2), rgba(0,50,100,0.3));
+            border: 1px solid rgba(0,200,255,0.3);
+            border-radius: 16px;
+            padding: 16px;
+            margin: 10px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .memory-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .memory-card:hover::before {
+            left: 100%;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ffff, #00ff88);
+            transition: width 0.3s;
+        }
+
+        @media (pointer: coarse) {
+            * { touch-action: manipulation; }
+        }
+
+        .ios-locked {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .ocr-text-block {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 15px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .translate-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, rgba(0,200,255,0.3), rgba(100,100,255,0.3));
+            border: 1px solid rgba(0,200,255,0.5);
+            border-radius: 20px;
+            color: #00ffff;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .translate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,200,255,0.3);
+        }
+
+        .translate-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .tab-container {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+
+        .tab-btn {
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            color: rgba(255,255,255,0.7);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .tab-btn.active {
+            background: rgba(0,200,255,0.2);
+            border-color: rgba(0,200,255,0.5);
+            color: #00ffff;
+        }
+
+        .memory-schedule {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .schedule-dot {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .schedule-dot.completed { background: #00ff88; color: #000; }
+        .schedule-dot.pending { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); }
+        .schedule-dot.active { background: #00ffff; color: #000; animation: pulse 1.5s infinite; }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .error-toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: rgba(255,50,50,0.9);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-size: 14px;
+            z-index: 3000;
+            transition: transform 0.3s;
+            backdrop-filter: blur(10px);
+        }
+
+        .error-toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .success-toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: rgba(0,255,136,0.9);
+            color: #000;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 3000;
+            transition: transform 0.3s;
+        }
+
+        .success-toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
     </style>
+<base target="_blank">
 </head>
 <body>
     <div class="bg-glow"></div>
-    <div id="particles" class="fixed inset-0 pointer-events-none z-50"></div>
-    
+
+    <div id="errorToast" class="error-toast"></div>
+    <div id="successToast" class="success-toast"></div>
+
     <input type="file" id="imageInput" class="hidden-input" accept="image/*" capture="environment">
-    <input type="text" id="systemInput" class="hidden-input">
-    
+    <input type="text" id="systemInput" class="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off">
+
     <div id="app">
-        <!-- 头部 -->
         <header class="flex justify-between items-center p-4 sticky top-0 z-40 bg-gradient-to-b from-[#0a1628] to-transparent">
             <div class="flex items-center gap-3">
                 <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-2xl font-bold shadow-lg">W</div>
                 <div>
-                    <h1 class="text-xl font-bold">WordMaster</h1>
+                    <h1 class="text-xl font-bold">WordMaster Pro</h1>
                     <p class="text-xs text-cyan-300/70" id="currentPath">默认库</p>
                 </div>
             </div>
-            <button onclick="showSettings()" class="p-3 rounded-xl glass">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            </button>
+            <div class="flex gap-2">
+                <button onclick="showMemoryView()" class="p-3 rounded-xl glass" title="记忆管理">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </button>
+                <button onclick="showSettings()" class="p-3 rounded-xl glass" title="设置">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                </button>
+            </div>
         </header>
 
-        <!-- 统计 -->
-        <div class="grid grid-cols-3 gap-3 px-4 mb-6">
-            <div class="glass rounded-2xl p-4 text-center">
-                <div class="text-2xl font-bold text-cyan-400" id="totalWords">0</div>
+        <div class="grid grid-cols-4 gap-3 px-4 mb-6">
+            <div class="glass rounded-2xl p-3 text-center">
+                <div class="text-xl font-bold text-cyan-400" id="totalWords">0</div>
                 <div class="text-xs text-cyan-300/50 mt-1">总单词</div>
             </div>
-            <div class="glass rounded-2xl p-4 text-center">
-                <div class="text-2xl font-bold text-emerald-400" id="masteredWords">0</div>
+            <div class="glass rounded-2xl p-3 text-center">
+                <div class="text-xl font-bold text-emerald-400" id="masteredWords">0</div>
                 <div class="text-xs text-emerald-300/50 mt-1">已掌握</div>
             </div>
-            <div class="glass rounded-2xl p-4 text-center">
-                <div class="text-2xl font-bold text-amber-400" id="currentStreak">0</div>
+            <div class="glass rounded-2xl p-3 text-center">
+                <div class="text-xl font-bold text-amber-400" id="currentStreak">0</div>
                 <div class="text-xs text-amber-300/50 mt-1">连击</div>
+            </div>
+            <div class="glass rounded-2xl p-3 text-center">
+                <div class="text-xl font-bold text-purple-400" id="todayReview">0</div>
+                <div class="text-xs text-purple-300/50 mt-1">待复习</div>
             </div>
         </div>
 
-        <!-- 学习视图 -->
         <div id="studyView" class="view active px-4">
             <div class="glass rounded-3xl p-6 relative overflow-hidden">
                 <div class="flex justify-center mb-4">
@@ -390,13 +639,23 @@
                     </span>
                 </div>
 
-                <button onclick="speakCurrent()" class="w-16 h-16 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center mx-auto mb-4 border border-cyan-400/30">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
-                </button>
+                <div class="flex justify-center gap-4 mb-4">
+                    <button onclick="speakCurrent()" class="w-14 h-14 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center border border-cyan-400/30 active:scale-95 transition-transform">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                    </button>
+                    <button onclick="translateCurrent()" class="translate-btn">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/></svg>
+                        翻译
+                    </button>
+                </div>
 
                 <div class="text-center space-y-3 mb-6">
                     <div id="wordDisplay" class="text-3xl font-bold text-white tracking-[0.3em] drop-shadow-[0_0_15px_rgba(0,200,255,0.5)]"></div>
                     <div id="definitionDisplay" class="text-base text-cyan-200/70"></div>
+                    <div id="translationResult" class="translation-result hidden">
+                        <div class="text-sm text-cyan-300 font-bold mb-1">智能翻译</div>
+                        <div id="translatedText" class="text-white"></div>
+                    </div>
                 </div>
 
                 <div class="input-area mb-4" id="inputArea" onclick="onInputAreaClick()">
@@ -405,187 +664,252 @@
 
                 <div id="spellingArea" class="flex flex-wrap justify-center gap-2 min-h-[60px] py-2 mb-4"></div>
 
-                <div class="flex justify-center gap-3">
-                    <button onclick="showHint()" class="px-5 py-2.5 rounded-xl bg-white/5 border border-white/20 text-sm">提示</button>
-                    <button onclick="checkWord()" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-sm font-bold">确认</button>
-                    <button onclick="nextWord()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-sm font-bold">下一个</button>
+                <div class="flex justify-center gap-3 flex-wrap">
+                    <button onclick="showHint()" class="px-5 py-2.5 rounded-xl bg-white/5 border border-white/20 text-sm active:scale-95 transition-transform">提示</button>
+                    <button onclick="checkWord()" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-sm font-bold active:scale-95 transition-transform">确认</button>
+                    <button onclick="nextWord()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-sm font-bold active:scale-95 transition-transform">下一个</button>
+                    <button onclick="markDifficult()" class="px-4 py-2.5 rounded-xl bg-red-500/20 border border-red-500/40 text-sm text-red-300 active:scale-95 transition-transform">难点</button>
                 </div>
 
                 <div id="feedback" class="h-6 text-sm font-medium opacity-0 transition-opacity text-center mt-3"></div>
+
+                <div class="mt-4 pt-4 border-t border-white/10">
+                    <div class="flex justify-between text-xs text-slate-400 mb-2">
+                        <span>记忆强度</span>
+                        <span id="memoryStrength">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="memoryProgress" class="progress-fill" style="width: 0%"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- 图片识别视图 -->
         <div id="ocrView" class="view px-4">
             <div class="glass rounded-3xl p-6 space-y-4">
                 <h2 class="text-xl font-bold flex items-center gap-2">
                     <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                    图片识别单词
+                    图片识别与翻译
                 </h2>
-                
-                <div class="image-upload-area" id="uploadArea" onclick="document.getElementById('imageInput').click()">
+
+                <div class="tab-container">
+                    <button class="tab-btn active" onclick="switchOcrTab('recognize')">识别文字</button>
+                    <button class="tab-btn" onclick="switchOcrTab('translate')">识别并翻译</button>
+                </div>
+
+                <div class="image-upload-area" id="uploadArea" onclick="triggerImageUpload()">
                     <svg class="w-12 h-12 mx-auto mb-3 text-cyan-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                     <p class="text-sm text-cyan-200/70">点击拍照或上传图片</p>
-                    <p class="text-xs text-slate-400 mt-1">支持自动识别、补全、纠错</p>
+                    <p class="text-xs text-slate-400 mt-1">支持自动识别、补全、纠错、翻译</p>
                 </div>
-                
+
                 <div id="ocrLoading" class="hidden">
                     <div class="loading-spinner"></div>
                     <p class="text-center text-sm text-cyan-300/70">正在识别图片内容...</p>
                 </div>
-                
+
                 <div id="ocrResult" class="hidden">
                     <div class="flex justify-between items-center mb-3">
                         <span class="text-sm font-bold">识别结果</span>
                         <span id="ocrConfidence" class="confidence-badge"></span>
                     </div>
                     <img id="previewImage" class="uploaded-image mx-auto">
-                    
+
+                    <div class="ocr-text-block" id="ocrFullText"></div>
+
+                    <div id="ocrTranslateSection" class="hidden mt-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-bold text-cyan-300">翻译结果</span>
+                            <button onclick="translateOcrResult()" class="text-xs px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-400">重新翻译</button>
+                        </div>
+                        <div id="ocrTranslation" class="translation-result">
+                            <div class="text-sm text-cyan-300">正在翻译...</div>
+                        </div>
+                    </div>
+
                     <div class="mt-4">
                         <p class="text-xs text-slate-400 mb-2">识别的单词（点击选择）：</p>
                         <div id="ocrWords" class="flex flex-wrap"></div>
                     </div>
-                    
+
                     <div id="smartSuggestions" class="mt-4 hidden">
                         <p class="text-xs text-cyan-300/70 mb-2">💡 智能补全建议：</p>
                         <div id="suggestionList" class="flex flex-wrap"></div>
                     </div>
-                    
+
                     <div class="mt-4 space-y-3">
                         <input type="text" id="ocrWordInput" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white" placeholder="英文单词">
-                        <input type="text" id="ocrDefInput" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white" placeholder="中文释义（可选）">
-                        
+                        <input type="text" id="ocrDefInput" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white" placeholder="中文释义（可选，留空自动翻译）">
+
                         <div class="flex gap-2">
                             <select id="ocrLibSelect" class="flex-1 px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white text-sm"></select>
-                            <button onclick="addOcrWord()" class="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 font-bold text-sm">添加</button>
+                            <button onclick="addOcrWord()" class="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 font-bold text-sm active:scale-95 transition-transform">添加</button>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 库管理视图 -->
         <div id="libraryView" class="view px-4">
             <div class="glass rounded-3xl p-4">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-xl font-bold">单词库</h2>
-                    <button onclick="showCreateLibDialog()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-sm font-bold">+ 新建</button>
+                    <button onclick="showCreateLibDialog()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-sm font-bold active:scale-95 transition-transform">+ 新建</button>
                 </div>
                 <div id="libraryTree" class="space-y-2 max-h-[60vh] overflow-y-auto"></div>
             </div>
         </div>
 
-        <!-- 添加视图 -->
         <div id="addView" class="view px-4">
             <div class="glass rounded-3xl p-6 space-y-4">
                 <h2 class="text-xl font-bold">添加单词</h2>
                 <select id="selectLibrary" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white"></select>
-                <input type="text" id="newWord" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white text-lg" placeholder="英文单词">
-                <input type="text" id="newDef" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white" placeholder="中文释义">
+                <input type="text" id="newWord" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white text-lg" placeholder="英文单词" autocomplete="off">
+                <input type="text" id="newDef" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white" placeholder="中文释义（可选，留空自动翻译）">
                 <div class="flex gap-3">
-                    <button onclick="addWord()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 font-bold">添加</button>
+                    <button onclick="addWord()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 font-bold active:scale-95 transition-transform">添加</button>
+                    <button onclick="autoTranslateNewWord()" class="px-4 py-3 rounded-xl bg-white/5 border border-white/20 text-sm active:scale-95 transition-transform">自动翻译</button>
                 </div>
-                <textarea id="bulkWords" rows="3" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-sm" placeholder="批量导入：apple 苹果&#10;book 书"></textarea>
-                <button onclick="addBulk()" class="w-full py-3 rounded-xl bg-white/5 border border-white/20 text-sm">批量导入</button>
+                <textarea id="bulkWords" rows="3" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-sm" placeholder="批量导入：apple 苹果&#10;book 书&#10;支持自动翻译，只输入英文即可"></textarea>
+                <div class="flex gap-2">
+                    <button onclick="addBulk()" class="flex-1 py-3 rounded-xl bg-white/5 border border-white/20 text-sm active:scale-95 transition-transform">批量导入</button>
+                    <button onclick="autoTranslateBulk()" class="px-4 py-3 rounded-xl bg-white/5 border border-white/20 text-sm active:scale-95 transition-transform">自动翻译</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="memoryView" class="view px-4">
+            <div class="glass rounded-3xl p-6 space-y-4">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-bold">艾宾浩斯记忆管理</h2>
+                    <button onclick="showView('study')" class="p-2 rounded-lg bg-white/5">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+
+                <div class="tab-container">
+                    <button class="tab-btn active" onclick="switchMemoryTab('today')">今日复习</button>
+                    <button class="tab-btn" onclick="switchMemoryTab('all')">全部单词</button>
+                    <button class="tab-btn" onclick="switchMemoryTab('difficult')">难点单词</button>
+                </div>
+
+                <div id="memoryList" class="space-y-3 max-h-[60vh] overflow-y-auto"></div>
+
+                <div class="glass rounded-2xl p-4 mt-4">
+                    <h3 class="font-bold mb-3 text-sm text-cyan-300">记忆曲线说明</h3>
+                    <div class="flex items-center gap-4 text-xs text-slate-400">
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded-full bg-[#00ff88]"></div>
+                            <span>已完成</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded-full bg-[#00ffff]"></div>
+                            <span>待复习</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded-full bg-white/10"></div>
+                            <span>未开始</span>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2">基于艾宾浩斯遗忘曲线：5分钟、30分钟、12小时、1天、2天、4天、7天、15天</p>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- 底部导航 -->
     <nav class="bottom-nav">
-        <button class="nav-btn active" onclick="showView('study')">
+        <button class="nav-btn active" onclick="showView('study')" data-view="study">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
             <span>学习</span>
         </button>
-        <button class="nav-btn" onclick="showView('ocr')">
+        <button class="nav-btn" onclick="showView('ocr')" data-view="ocr">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
             <span>识图</span>
         </button>
-        <button class="nav-btn" onclick="showView('library')">
+        <button class="nav-btn" onclick="showView('library')" data-view="library">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
             <span>词库</span>
         </button>
-        <button class="nav-btn" onclick="showView('add')">
+        <button class="nav-btn" onclick="showView('add')" data-view="add">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             <span>添加</span>
         </button>
     </nav>
 
-    <!-- 虚拟键盘 -->
     <div class="keyboard-wrapper" id="virtualKeyboard">
         <div class="flex justify-between px-4 mb-2">
             <div class="flex gap-2">
-                <button class="text-xs px-3 py-1 rounded bg-white/10" onclick="toggleSymbolMode()">符</button>
-                <button class="text-xs px-3 py-1 rounded bg-white/10" onclick="toggleShift()" id="shiftBtn">⇧</button>
+                <button class="text-xs px-3 py-1 rounded bg-white/10 active:scale-95" onclick="toggleSymbolMode()">符</button>
+                <button class="text-xs px-3 py-1 rounded bg-white/10 active:scale-95" onclick="toggleShift()" id="shiftBtn">⇧</button>
             </div>
-            <button class="text-xs px-3 py-1 rounded bg-red-500/20 text-red-300" onclick="hideKeyboard()">收起</button>
+            <button class="text-xs px-3 py-1 rounded bg-red-500/20 text-red-300 active:scale-95" onclick="hideKeyboard()">收起</button>
         </div>
-        
+
         <div id="letterKeyboard">
             <div class="keyboard-row">
-                <button class="key-btn" onclick="typeKey('q')">q</button>
-                <button class="key-btn" onclick="typeKey('w')">w</button>
-                <button class="key-btn" onclick="typeKey('e')">e</button>
-                <button class="key-btn" onclick="typeKey('r')">r</button>
-                <button class="key-btn" onclick="typeKey('t')">t</button>
-                <button class="key-btn" onclick="typeKey('y')">y</button>
-                <button class="key-btn" onclick="typeKey('u')">u</button>
-                <button class="key-btn" onclick="typeKey('i')">i</button>
-                <button class="key-btn" onclick="typeKey('o')">o</button>
-                <button class="key-btn" onclick="typeKey('p')">p</button>
+                <button class="key-btn" data-key="q">q</button>
+                <button class="key-btn" data-key="w">w</button>
+                <button class="key-btn" data-key="e">e</button>
+                <button class="key-btn" data-key="r">r</button>
+                <button class="key-btn" data-key="t">t</button>
+                <button class="key-btn" data-key="y">y</button>
+                <button class="key-btn" data-key="u">u</button>
+                <button class="key-btn" data-key="i">i</button>
+                <button class="key-btn" data-key="o">o</button>
+                <button class="key-btn" data-key="p">p</button>
             </div>
             <div class="keyboard-row">
-                <button class="key-btn" onclick="typeKey('a')">a</button>
-                <button class="key-btn" onclick="typeKey('s')">s</button>
-                <button class="key-btn" onclick="typeKey('d')">d</button>
-                <button class="key-btn" onclick="typeKey('f')">f</button>
-                <button class="key-btn" onclick="typeKey('g')">g</button>
-                <button class="key-btn" onclick="typeKey('h')">h</button>
-                <button class="key-btn" onclick="typeKey('j')">j</button>
-                <button class="key-btn" onclick="typeKey('k')">k</button>
-                <button class="key-btn" onclick="typeKey('l')">l</button>
+                <button class="key-btn" data-key="a">a</button>
+                <button class="key-btn" data-key="s">s</button>
+                <button class="key-btn" data-key="d">d</button>
+                <button class="key-btn" data-key="f">f</button>
+                <button class="key-btn" data-key="g">g</button>
+                <button class="key-btn" data-key="h">h</button>
+                <button class="key-btn" data-key="j">j</button>
+                <button class="key-btn" data-key="k">k</button>
+                <button class="key-btn" data-key="l">l</button>
                 <button class="key-btn function" onclick="backspace()">⌫</button>
             </div>
             <div class="keyboard-row">
-                <button class="key-btn wide" onclick="typeKey('z')">z</button>
-                <button class="key-btn" onclick="typeKey('x')">x</button>
-                <button class="key-btn" onclick="typeKey('c')">c</button>
-                <button class="key-btn" onclick="typeKey('v')">v</button>
-                <button class="key-btn" onclick="typeKey('b')">b</button>
-                <button class="key-btn" onclick="typeKey('n')">n</button>
-                <button class="key-btn" onclick="typeKey('m')">m</button>
+                <button class="key-btn wide" data-key="z">z</button>
+                <button class="key-btn" data-key="x">x</button>
+                <button class="key-btn" data-key="c">c</button>
+                <button class="key-btn" data-key="v">v</button>
+                <button class="key-btn" data-key="b">b</button>
+                <button class="key-btn" data-key="n">n</button>
+                <button class="key-btn" data-key="m">m</button>
                 <button class="key-btn extra-wide function" onclick="checkWord()">Enter</button>
             </div>
             <div class="keyboard-row">
                 <button class="key-btn wide" onclick="toggleSymbolMode()">123</button>
                 <button class="key-btn space" onclick="typeKey(' ')">space</button>
-                <button class="key-btn wide" onclick="typeKey('.')">.</button>
+                <button class="key-btn wide" data-key=".">.</button>
             </div>
         </div>
-        
+
         <div id="symbolKeyboard" class="hidden">
             <div class="keyboard-row">
-                <button class="key-btn" onclick="typeKey('1')">1</button>
-                <button class="key-btn" onclick="typeKey('2')">2</button>
-                <button class="key-btn" onclick="typeKey('3')">3</button>
-                <button class="key-btn" onclick="typeKey('4')">4</button>
-                <button class="key-btn" onclick="typeKey('5')">5</button>
-                <button class="key-btn" onclick="typeKey('6')">6</button>
-                <button class="key-btn" onclick="typeKey('7')">7</button>
-                <button class="key-btn" onclick="typeKey('8')">8</button>
-                <button class="key-btn" onclick="typeKey('9')">9</button>
-                <button class="key-btn" onclick="typeKey('0')">0</button>
+                <button class="key-btn" data-key="1">1</button>
+                <button class="key-btn" data-key="2">2</button>
+                <button class="key-btn" data-key="3">3</button>
+                <button class="key-btn" data-key="4">4</button>
+                <button class="key-btn" data-key="5">5</button>
+                <button class="key-btn" data-key="6">6</button>
+                <button class="key-btn" data-key="7">7</button>
+                <button class="key-btn" data-key="8">8</button>
+                <button class="key-btn" data-key="9">9</button>
+                <button class="key-btn" data-key="0">0</button>
             </div>
             <div class="keyboard-row">
-                <button class="key-btn" onclick="typeKey('-')">-</button>
-                <button class="key-btn" onclick="typeKey('+')">+</button>
-                <button class="key-btn" onclick="typeKey('*')">*</button>
-                <button class="key-btn" onclick="typeKey('/')">/</button>
-                <button class="key-btn" onclick="typeKey('=')">=</button>
-                <button class="key-btn" onclick="typeKey('(')">(</button>
-                <button class="key-btn" onclick="typeKey(')')">)</button>
-                <button class="key-btn" onclick="typeKey('!')">!</button>
-                <button class="key-btn" onclick="typeKey('?')">?</button>
+                <button class="key-btn" data-key="-">-</button>
+                <button class="key-btn" data-key="+">+</button>
+                <button class="key-btn" data-key="*">*</button>
+                <button class="key-btn" data-key="/">/</button>
+                <button class="key-btn" data-key="=">=</button>
+                <button class="key-btn" data-key="(">(</button>
+                <button class="key-btn" data-key=")">)</button>
+                <button class="key-btn" data-key="!">!</button>
+                <button class="key-btn" data-key="?">?</button>
                 <button class="key-btn function" onclick="backspace()">⌫</button>
             </div>
             <div class="keyboard-row">
@@ -596,9 +920,8 @@
         </div>
     </div>
 
-    <!-- 设置弹窗 -->
-    <div id="settingsModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-[2000] hidden flex items-center justify-center p-4">
-        <div class="glass rounded-3xl p-6 w-full max-w-sm space-y-4">
+    <div id="settingsModal" class="modal-overlay">
+        <div class="modal-content p-6 space-y-4">
             <h3 class="text-xl font-bold text-center">设置</h3>
             <div class="space-y-3">
                 <div class="flex justify-between items-center p-3 rounded-xl bg-white/5">
@@ -614,8 +937,50 @@
                         <span class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full transition-transform"></span>
                     </button>
                 </div>
+                <div class="flex justify-between items-center p-3 rounded-xl bg-white/5">
+                    <span>自动播放发音</span>
+                    <button id="autoSpeakToggle" class="w-12 h-6 rounded-full bg-indigo-600 relative" onclick="toggleSetting('autoSpeak')">
+                        <span class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full transition-transform"></span>
+                    </button>
+                </div>
+
+                <div class="p-3 rounded-xl bg-white/5">
+                    <span class="block mb-2">语音包</span>
+                    <div class="voice-pack-grid" id="voicePackGrid">
+                        <div class="voice-pack-item selected" data-voice="default">
+                            <div class="font-bold">默认</div>
+                            <div class="text-xs text-slate-400">系统语音</div>
+                        </div>
+                        <div class="voice-pack-item" data-voice="uk">
+                            <div class="font-bold">英式</div>
+                            <div class="text-xs text-slate-400">UK English</div>
+                        </div>
+                        <div class="voice-pack-item" data-voice="us">
+                            <div class="font-bold">美式</div>
+                            <div class="text-xs text-slate-400">US English</div>
+                        </div>
+                        <div class="voice-pack-item" data-voice="slow">
+                            <div class="font-bold">慢速</div>
+                            <div class="text-xs text-slate-400">Slow Mode</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center p-3 rounded-xl bg-white/5">
+                    <span>智能翻译</span>
+                    <button id="autoTranslateToggle" class="w-12 h-6 rounded-full bg-indigo-600 relative" onclick="toggleSetting('autoTranslate')">
+                        <span class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full transition-transform"></span>
+                    </button>
+                </div>
             </div>
-            <button onclick="closeSettings()" class="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 font-bold">确定</button>
+
+            <div class="pt-4 border-t border-white/10 space-y-2">
+                <button onclick="exportData()" class="w-full py-2 rounded-xl bg-white/5 text-sm active:scale-95 transition-transform">导出数据</button>
+                <button onclick="importData()" class="w-full py-2 rounded-xl bg-white/5 text-sm active:scale-95 transition-transform">导入数据</button>
+                <button onclick="clearAllData()" class="w-full py-2 rounded-xl bg-red-500/20 text-red-400 text-sm active:scale-95 transition-transform">清除所有数据</button>
+            </div>
+
+            <button onclick="closeSettings()" class="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 font-bold mt-4 active:scale-95 transition-transform">确定</button>
         </div>
     </div>
 
@@ -623,23 +988,33 @@
         // 数据存储
         let settings = JSON.parse(localStorage.getItem('wm_settings')) || {
             defaultKeyboard: 'virtual',
-            vibrate: true
+            vibrate: true,
+            autoSpeak: true,
+            autoTranslate: true,
+            voicePack: 'default',
+            autoCheck: false
         };
-        
+
         let libraryRoot = JSON.parse(localStorage.getItem('wm_library_root')) || {
             id: 'root', name: '单词库', type: 'folder',
             children: [{ id: 'default', name: '默认库', type: 'library', words: [
-                {w:"hello", d:"你好"}, {w:"world", d:"世界"}, {w:"study", d:"学习"}
+                {w:"hello", d:"你好", memory: null},
+                {w:"world", d:"世界", memory: null},
+                {w:"study", d:"学习", memory: null}
             ]}]
         };
-        
+
         let currentLibId = localStorage.getItem('wm_current_lib') || 'default';
         let currentIdx = 0, currentInput = [], streak = 0;
         let mastered = new Set(JSON.parse(localStorage.getItem('wm_mastered') || '[]'));
         let isUpperCase = false, isSymbolMode = false;
         let ocrSelectedWord = '';
+        let ocrCurrentTab = 'recognize';
+        let memoryData = JSON.parse(localStorage.getItem('wm_memory')) || {};
+        let difficultWords = new Set(JSON.parse(localStorage.getItem('wm_difficult') || '[]'));
 
-        // 常用英语单词词典（用于智能补全）
+        const EBINGHAUS_INTERVALS = [5, 30, 720, 1440, 2880, 5760, 10080, 21600];
+
         const commonWords = [
             "the","be","to","of","and","a","in","that","have","i","it","for","not","on","with","he","as","you","do","at",
             "this","but","his","by","from","they","we","say","her","she","or","an","will","my","one","all","would","there",
@@ -651,6 +1026,10 @@
             "speak","listen","school","student","teacher","class","lesson","test","exam","knowledge","education","university"
         ];
 
+        document.addEventListener('DOMContentLoaded', function() {
+            init();
+        });
+
         function init() {
             loadSettings();
             updateLibrarySelect();
@@ -658,33 +1037,90 @@
             renderLibraryTree();
             updateStats();
             updateCurrentPath();
+            updateMemoryStats();
+
             const lib = findLibrary(currentLibId);
             if(lib && lib.node.words.length) loadWord(0);
             else showEmpty();
-            
-            // 图片上传监听
-            document.getElementById('imageInput').addEventListener('change', handleImageUpload);
-            
-            // 拖拽上传
+
+            bindKeyboardEvents();
+
+            const imageInput = document.getElementById('imageInput');
+            imageInput.addEventListener('change', handleImageUpload);
+
             const uploadArea = document.getElementById('uploadArea');
             uploadArea.addEventListener('dragover', (e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 uploadArea.classList.add('dragover');
             });
-            uploadArea.addEventListener('dragleave', () => {
+            uploadArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 uploadArea.classList.remove('dragover');
             });
             uploadArea.addEventListener('drop', (e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 uploadArea.classList.remove('dragover');
                 const files = e.dataTransfer.files;
                 if(files.length) processImage(files[0]);
+            });
+
+            const systemInput = document.getElementById('systemInput');
+            systemInput.addEventListener('input', handleSystemInput);
+            systemInput.addEventListener('focus', () => {
+                if(settings.defaultKeyboard === 'virtual') {
+                    systemInput.blur();
+                    showKeyboard();
+                }
+            });
+
+            document.addEventListener('touchmove', function(e) {
+                if(e.target.closest('.keyboard-wrapper')) return;
+                if(document.getElementById('app').classList.contains('no-scroll')) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+
+            document.querySelectorAll('.voice-pack-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    document.querySelectorAll('.voice-pack-item').forEach(i => i.classList.remove('selected'));
+                    this.classList.add('selected');
+                    settings.voicePack = this.dataset.voice;
+                    saveSettings();
+                });
+            });
+        }
+
+        function bindKeyboardEvents() {
+            const keys = document.querySelectorAll('.key-btn[data-key]');
+            keys.forEach(key => {
+                const handlePress = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const k = key.dataset.key;
+                    if(k) typeKey(k);
+                };
+
+                key.addEventListener('touchstart', handlePress, {passive: false});
+                key.addEventListener('mousedown', handlePress);
+
+                key.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                }, {passive: false});
             });
         }
 
         function loadSettings() {
             document.getElementById('defaultKeyboard').value = settings.defaultKeyboard;
             updateToggle('vibrateToggle', settings.vibrate);
+            updateToggle('autoSpeakToggle', settings.autoSpeak);
+            updateToggle('autoTranslateToggle', settings.autoTranslate);
+
+            document.querySelectorAll('.voice-pack-item').forEach(item => {
+                item.classList.toggle('selected', item.dataset.voice === settings.voicePack);
+            });
         }
 
         function updateToggle(id, value) {
@@ -706,49 +1142,332 @@
         }
 
         function showSettings() {
-            document.getElementById('settingsModal').classList.remove('hidden');
+            document.getElementById('settingsModal').classList.add('active');
             hideKeyboard();
         }
 
         function closeSettings() {
-            document.getElementById('settingsModal').classList.add('hidden');
+            document.getElementById('settingsModal').classList.remove('active');
         }
 
-        // 视图切换
+        function showToast(message, type) {
+            type = type || 'error';
+            const toastId = type === 'error' ? 'errorToast' : 'successToast';
+            const toast = document.getElementById(toastId);
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
         function showView(viewName) {
-            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            
-            document.getElementById(viewName + 'View').classList.add('active');
-            const navIndex = ['study','ocr','library','add'].indexOf(viewName);
-            if(navIndex >= 0) document.querySelectorAll('.nav-btn')[navIndex].classList.add('active');
-            
+            document.querySelectorAll('.view').forEach(v => {
+                v.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-btn').forEach(b => {
+                b.classList.remove('active');
+            });
+
+            const targetView = document.getElementById(viewName + 'View');
+            if(targetView) {
+                targetView.classList.add('active');
+            }
+
+            const navBtn = document.querySelector('.nav-btn[data-view="' + viewName + '"]');
+            if(navBtn) {
+                navBtn.classList.add('active');
+            }
+
             hideKeyboard();
-            
+
             if(viewName === 'library') renderLibraryTree();
             if(viewName === 'add') updateLibrarySelect();
             if(viewName === 'ocr') updateOcrLibrarySelect();
+            if(viewName === 'study') {
+                updateStats();
+                const lib = findLibrary(currentLibId);
+                if(lib && lib.node.words.length && !document.getElementById('wordDisplay').textContent) {
+                    loadWord(currentIdx);
+                }
+            }
         }
 
-        // 图片识别功能
+        function showMemoryView() {
+            showView('memory');
+            renderMemoryList('today');
+        }
+
+        function switchMemoryTab(tab) {
+            document.querySelectorAll('#memoryView .tab-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            renderMemoryList(tab);
+        }
+
+        function renderMemoryList(filter) {
+            const container = document.getElementById('memoryList');
+            container.innerHTML = '';
+
+            const lib = findLibrary(currentLibId);
+            if(!lib || !lib.node.words.length) {
+                container.innerHTML = '<div class="text-center text-slate-500 py-8">暂无单词</div>';
+                return;
+            }
+
+            const now = Date.now();
+            let words = lib.node.words.map((w, idx) => ({...w, idx}));
+
+            if(filter === 'today') {
+                words = words.filter(w => {
+                    const mem = memoryData[w.w];
+                    if(!mem || !mem.nextReview) return true;
+                    return mem.nextReview <= now;
+                });
+            } else if(filter === 'difficult') {
+                words = words.filter(w => difficultWords.has(w.w));
+            }
+
+            if(words.length === 0) {
+                container.innerHTML = '<div class="text-center text-slate-500 py-8">没有符合条件的单词</div>';
+                return;
+            }
+
+            words.forEach(word => {
+                const mem = memoryData[word.w];
+                const card = document.createElement('div');
+                card.className = 'memory-card';
+
+                let scheduleHtml = '<div class="memory-schedule">';
+                if(mem && mem.schedule) {
+                    mem.schedule.forEach((item, i) => {
+                        let cls = 'pending';
+                        if(item.completed) cls = 'completed';
+                        else if(!item.completed && !mem.schedule.slice(0, i).some(s => !s.completed)) cls = 'active';
+                        scheduleHtml += '<div class="schedule-dot ' + cls + '">' + (i+1) + '</div>';
+                    });
+                } else {
+                    for(let i = 0; i < 8; i++) {
+                        scheduleHtml += '<div class="schedule-dot ' + (i === 0 ? 'active' : 'pending') + '">' + (i+1) + '</div>';
+                    }
+                }
+                scheduleHtml += '</div>';
+
+                card.innerHTML = '<div class="flex justify-between items-start"><div><div class="font-bold text-lg">' + word.w + '</div><div class="text-sm text-cyan-300/70">' + word.d + '</div></div><div class="flex gap-2"><button onclick="speak('' + word.w + '')" class="p-2 rounded-lg bg-white/5"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg></button><button onclick="startReview('' + word.w + '')" class="px-3 py-2 rounded-lg bg-cyan-500/20 text-cyan-400 text-sm">复习</button></div></div>' + scheduleHtml;
+                container.appendChild(card);
+            });
+        }
+
+        function startReview(word) {
+            const lib = findLibrary(currentLibId);
+            if(!lib) return;
+            const idx = lib.node.words.findIndex(w => w.w === word);
+            if(idx >= 0) {
+                currentIdx = idx;
+                showView('study');
+                loadWord(idx);
+            }
+        }
+
+        function updateMemoryStats() {
+            const lib = findLibrary(currentLibId);
+            if(!lib) return;
+
+            const now = Date.now();
+            let todayCount = 0;
+
+            lib.node.words.forEach(w => {
+                const mem = memoryData[w.w];
+                if(!mem || !mem.nextReview || mem.nextReview <= now) {
+                    todayCount++;
+                }
+            });
+
+            document.getElementById('todayReview').textContent = todayCount;
+        }
+
+        function updateWordMemory(word, isCorrect) {
+            if(!memoryData[word]) {
+                memoryData[word] = {
+                    schedule: EBINGHAUS_INTERVALS.map((interval, i) => ({
+                        interval: interval,
+                        completed: false,
+                        time: null
+                    })),
+                    currentStage: 0,
+                    nextReview: null,
+                    reviewCount: 0,
+                    correctCount: 0
+                };
+            }
+
+            const mem = memoryData[word];
+            mem.reviewCount++;
+            if(isCorrect) mem.correctCount++;
+
+            if(isCorrect && mem.currentStage < mem.schedule.length) {
+                mem.schedule[mem.currentStage].completed = true;
+                mem.schedule[mem.currentStage].time = Date.now();
+                mem.currentStage++;
+
+                if(mem.currentStage < mem.schedule.length) {
+                    mem.nextReview = Date.now() + mem.schedule[mem.currentStage].interval * 60 * 1000;
+                } else {
+                    mem.nextReview = null;
+                }
+            }
+
+            localStorage.setItem('wm_memory', JSON.stringify(memoryData));
+            updateMemoryStats();
+            updateMemoryProgress(word);
+        }
+
+        function updateMemoryProgress(word) {
+            const mem = memoryData[word];
+            if(!mem) {
+                document.getElementById('memoryStrength').textContent = '0%';
+                document.getElementById('memoryProgress').style.width = '0%';
+                return;
+            }
+
+            const progress = (mem.currentStage / mem.schedule.length) * 100;
+            document.getElementById('memoryStrength').textContent = Math.round(progress) + '%';
+            document.getElementById('memoryProgress').style.width = progress + '%';
+        }
+
+        function markDifficult() {
+            const lib = findLibrary(currentLibId);
+            if(!lib || !lib.node.words.length) return;
+
+            const word = lib.node.words[currentIdx].w;
+            if(difficultWords.has(word)) {
+                difficultWords.delete(word);
+                showToast('已取消难点标记', 'success');
+            } else {
+                difficultWords.add(word);
+                showToast('已标记为难点单词', 'success');
+            }
+
+            localStorage.setItem('wm_difficult', JSON.stringify([...difficultWords]));
+        }
+
+        async function translateText(text, from, to) {
+            from = from || 'en';
+            to = to || 'zh';
+            if(!text || !settings.autoTranslate) return null;
+
+            try {
+                const response = await fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=' + from + '|' + to);
+                const data = await response.json();
+
+                if(data.responseData && data.responseData.translatedText) {
+                    return data.responseData.translatedText;
+                }
+                return null;
+            } catch(err) {
+                console.error('翻译失败:', err);
+                return null;
+            }
+        }
+
+        async function translateCurrent() {
+            const lib = findLibrary(currentLibId);
+            if(!lib || !lib.node.words.length) return;
+
+            const word = lib.node.words[currentIdx];
+            const resultDiv = document.getElementById('translationResult');
+            const textDiv = document.getElementById('translatedText');
+
+            resultDiv.classList.remove('hidden');
+            textDiv.textContent = '翻译中...';
+
+            const translation = await translateText(word.w);
+            if(translation) {
+                textDiv.textContent = translation;
+            } else {
+                textDiv.textContent = '翻译失败，请检查网络';
+            }
+        }
+
+        async function autoTranslateNewWord() {
+            const word = document.getElementById('newWord').value.trim();
+            if(!word) {
+                showToast('请先输入英文单词');
+                return;
+            }
+
+            const defInput = document.getElementById('newDef');
+            defInput.value = '翻译中...';
+
+            const translation = await translateText(word);
+            if(translation) {
+                defInput.value = translation;
+            } else {
+                defInput.value = '';
+                showToast('自动翻译失败，请手动输入');
+            }
+        }
+
+        async function autoTranslateBulk() {
+            const textarea = document.getElementById('bulkWords');
+            const lines = textarea.value.trim().split('\n');
+
+            const translatedLines = [];
+            for(const line of lines) {
+                const parts = line.trim().split(/\s+/);
+                if(parts.length >= 1 && parts[0]) {
+                    const word = parts[0];
+                    let def = parts.slice(1).join(' ');
+
+                    if(!def) {
+                        const translation = await translateText(word);
+                        def = translation || '(翻译失败)';
+                        await new Promise(r => setTimeout(r, 300));
+                    }
+
+                    translatedLines.push(word + ' ' + def);
+                }
+            }
+
+            textarea.value = translatedLines.join('\n');
+            showToast('批量翻译完成', 'success');
+        }
+
+        async function translateOcrResult() {
+            const text = document.getElementById('ocrFullText').textContent;
+            if(!text) return;
+
+            const transDiv = document.getElementById('ocrTranslation');
+            transDiv.innerHTML = '<div class="text-sm text-cyan-300">正在翻译...</div>';
+
+            const translation = await translateText(text);
+            if(translation) {
+                transDiv.innerHTML = '<div class="text-white">' + translation + '</div>';
+            } else {
+                transDiv.innerHTML = '<div class="text-red-400">翻译失败</div>';
+            }
+        }
+
+        function triggerImageUpload() {
+            document.getElementById('imageInput').click();
+        }
+
         async function handleImageUpload(e) {
             const file = e.target.files[0];
-            if(file) processImage(file);
+            if(file) await processImage(file);
+            e.target.value = '';
         }
 
         async function processImage(file) {
             document.getElementById('ocrLoading').classList.remove('hidden');
             document.getElementById('ocrResult').classList.add('hidden');
-            
+
             const reader = new FileReader();
             reader.onload = async (e) => {
                 const img = new Image();
                 img.onload = async () => {
-                    // 预处理图片
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
-                    
-                    // 调整大小以提高识别率
+
                     const maxSize = 1200;
                     let width = img.width, height = img.height;
                     if(width > maxSize || height > maxSize) {
@@ -762,30 +1481,37 @@
                     }
                     canvas.width = width;
                     canvas.height = height;
-                    
-                    // 增强对比度
+
                     ctx.filter = 'contrast(1.2) brightness(1.1)';
                     ctx.drawImage(img, 0, 0, width, height);
-                    
+
                     const processedImage = canvas.toDataURL('image/jpeg', 0.9);
                     document.getElementById('previewImage').src = processedImage;
-                    
+
                     try {
                         const result = await Tesseract.recognize(
                             processedImage,
                             'eng',
                             { 
-                                logger: m => console.log(m),
-                                tessedit_char_whitelist: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_\'.',
+                                logger: m => {
+                                    if(m.status === 'recognizing text') {
+                                        console.log('识别进度: ' + (m.progress * 100).toFixed(1) + '%');
+                                    }
+                                },
+                                tessedit_char_whitelist: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-\'_.',
                                 tessedit_pageseg_mode: '6'
                             }
                         );
-                        
+
                         displayOcrResult(result);
                     } catch(err) {
-                        alert('识别失败：' + err.message);
+                        showToast('识别失败：' + err.message);
                         document.getElementById('ocrLoading').classList.add('hidden');
                     }
+                };
+                img.onerror = () => {
+                    showToast('图片加载失败');
+                    document.getElementById('ocrLoading').classList.add('hidden');
                 };
                 img.src = e.target.result;
             };
@@ -795,61 +1521,70 @@
         function displayOcrResult(result) {
             document.getElementById('ocrLoading').classList.add('hidden');
             document.getElementById('ocrResult').classList.remove('hidden');
-            
+
             const text = result.data.text.trim();
             const confidence = result.data.confidence;
-            
-            // 显示置信度
+
             const confBadge = document.getElementById('ocrConfidence');
             confBadge.textContent = '置信度: ' + Math.round(confidence) + '%';
             confBadge.className = 'confidence-badge ' + (confidence > 80 ? 'confidence-high' : confidence > 50 ? 'confidence-medium' : 'confidence-low');
-            
-            // 提取单词
+
+            document.getElementById('ocrFullText').textContent = text || '未能识别到文字';
+
+            if(ocrCurrentTab === 'translate') {
+                document.getElementById('ocrTranslateSection').classList.remove('hidden');
+                translateOcrResult();
+            } else {
+                document.getElementById('ocrTranslateSection').classList.add('hidden');
+            }
+
             const words = extractWords(text);
             const wordsContainer = document.getElementById('ocrWords');
             wordsContainer.innerHTML = '';
-            
+
             words.forEach((word, idx) => {
                 const span = document.createElement('span');
                 span.className = 'ocr-word';
                 span.textContent = word;
-                span.onclick = () => selectOcrWord(word, span);
+                span.addEventListener('click', () => selectOcrWord(word, span));
                 wordsContainer.appendChild(span);
             });
-            
-            // 智能补全建议
+
             generateSmartSuggestions(words);
-            
-            // 自动选择第一个单词
+
             if(words.length > 0) {
                 selectOcrWord(words[0], wordsContainer.children[0]);
             }
         }
 
+        function switchOcrTab(tab) {
+            ocrCurrentTab = tab;
+            document.querySelectorAll('#ocrView .tab-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
         function extractWords(text) {
-            // 清理和分割文本
             const cleaned = text
                 .replace(/[^\w\s\-']/g, ' ')
                 .replace(/\s+/g, ' ')
                 .trim();
-            
+
             const words = cleaned.split(/\s+/)
                 .map(w => w.toLowerCase().trim())
                 .filter(w => w.length >= 2 && w.length <= 20)
-                .filter((w, i, arr) => arr.indexOf(w) === i); // 去重
-            
-            return words.slice(0, 10); // 最多显示10个
+                .filter((w, i, arr) => arr.indexOf(w) === i);
+
+            return words.slice(0, 10);
         }
 
         function generateSmartSuggestions(detectedWords) {
             const suggestionsDiv = document.getElementById('smartSuggestions');
             const listDiv = document.getElementById('suggestionList');
             listDiv.innerHTML = '';
-            
+
             const suggestions = new Set();
-            
+
             detectedWords.forEach(word => {
-                // 1. 模糊匹配常见单词
                 if(word.length >= 3) {
                     commonWords.forEach(common => {
                         const dist = levenshteinDistance(word, common);
@@ -858,10 +1593,8 @@
                         }
                     });
                 }
-                
-                // 2. 补全缺少的字母
+
                 if(word.length >= 4) {
-                    // 检查是否是某个常见单词的子串
                     commonWords.forEach(common => {
                         if(common.includes(word) && common !== word) {
                             suggestions.add(JSON.stringify({word: common, reason: '补全为', original: word}));
@@ -872,19 +1605,20 @@
                     });
                 }
             });
-            
+
             const suggestionArray = Array.from(suggestions).map(s => JSON.parse(s)).slice(0, 6);
-            
+
             if(suggestionArray.length > 0) {
                 suggestionsDiv.classList.remove('hidden');
                 suggestionArray.forEach(sug => {
                     const chip = document.createElement('div');
                     chip.className = 'suggestion-chip';
-                    chip.innerHTML = `<span class="text-xs text-cyan-300/70 mr-1">${sug.reason}</span><span class="font-bold">${sug.word}</span>`;
-                    chip.onclick = () => {
+                    chip.innerHTML = '<span class="text-xs text-cyan-300/70 mr-1">' + sug.reason + '</span><span class="font-bold">' + sug.word + '</span>';
+                    chip.addEventListener('click', () => {
                         document.getElementById('ocrWordInput').value = sug.word;
                         ocrSelectedWord = sug.word;
-                    };
+                        autoTranslateOcrWord(sug.word);
+                    });
                     listDiv.appendChild(chip);
                 });
             } else {
@@ -892,11 +1626,21 @@
             }
         }
 
+        async function autoTranslateOcrWord(word) {
+            const defInput = document.getElementById('ocrDefInput');
+            if(!defInput.value) {
+                const translation = await translateText(word);
+                if(translation) {
+                    defInput.value = translation;
+                }
+            }
+        }
+
         function levenshteinDistance(a, b) {
             const matrix = [];
             for(let i = 0; i <= b.length; i++) matrix[i] = [i];
             for(let j = 0; j <= a.length; j++) matrix[0][j] = j;
-            
+
             for(let i = 1; i <= b.length; i++) {
                 for(let j = 1; j <= a.length; j++) {
                     matrix[i][j] = b[i-1] === a[j-1] ? 
@@ -912,6 +1656,7 @@
             element.classList.add('selected');
             document.getElementById('ocrWordInput').value = word;
             ocrSelectedWord = word;
+            autoTranslateOcrWord(word);
         }
 
         function updateOcrLibrarySelect() {
@@ -927,46 +1672,60 @@
             });
         }
 
-        function addOcrWord() {
+        async function addOcrWord() {
             const word = document.getElementById('ocrWordInput').value.trim().toLowerCase();
-            const def = document.getElementById('ocrDefInput').value.trim();
+            let def = document.getElementById('ocrDefInput').value.trim();
             const libId = document.getElementById('ocrLibSelect').value;
-            
+
             if(!word) {
-                alert('请输入单词');
+                showToast('请输入单词');
                 return;
             }
-            
+
+            if(!def && settings.autoTranslate) {
+                const translation = await translateText(word);
+                if(translation) {
+                    def = translation;
+                } else {
+                    def = '(图片识别)';
+                }
+            }
+
             const lib = findLibrary(libId);
             if(lib) {
                 lib.node.words.push({
                     w: word,
-                    d: def || '(图片识别)'
+                    d: def || '(图片识别)',
+                    memory: null
                 });
                 saveLibrary();
                 updateStats();
                 updateLibrarySelect();
                 updateOcrLibrarySelect();
-                
-                alert(`已添加 "${word}" 到 ${lib.node.name}`);
+
+                showToast('已添加 "' + word + '" 到 ' + lib.node.name, 'success');
                 document.getElementById('ocrWordInput').value = '';
                 document.getElementById('ocrDefInput').value = '';
             }
         }
 
-        // 库操作
-        function findLibrary(id, node = libraryRoot, path = []) {
-            if(node.id === id && node.type === 'library') return {node, path};
+        function findLibrary(id, node, path) {
+            node = node || libraryRoot;
+            path = path || [];
+            if(node.id === id && node.type === 'library') return {node: node, path: path};
             if(node.children) {
-                for(let child of node.children) {
-                    const result = findLibrary(id, child, [...path, node]);
+                for(let i = 0; i < node.children.length; i++) {
+                    const result = findLibrary(id, node.children[i], path.concat([node]));
                     if(result) return result;
                 }
             }
             return null;
         }
 
-        function getAllLibraries(node = libraryRoot, list = [], path = '') => {
+        function getAllLibraries(node, list, path) {
+            node = node || libraryRoot;
+            list = list || [];
+            path = path || '';
             const currentPath = path ? path + ' > ' + node.name : node.name;
             if(node.type === 'library') {
                 list.push({id: node.id, name: node.name, path: currentPath});
@@ -984,7 +1743,12 @@
 
         function updateCurrentPath() {
             const result = findLibrary(currentLibId);
-            const pathStr = result ? result.path.slice(1).map(n => n.name).join(' > ') + ' > ' + result.node.name : '默认库';
+            let pathStr = '默认库';
+            if(result) {
+                const names = result.path.slice(1).map(n => n.name);
+                names.push(result.node.name);
+                pathStr = names.join(' > ');
+            }
             document.getElementById('currentPath').textContent = pathStr;
         }
 
@@ -994,35 +1758,44 @@
             document.getElementById('totalWords').textContent = count;
             document.getElementById('masteredWords').textContent = mastered.size;
             document.getElementById('currentStreak').textContent = streak;
+            updateMemoryStats();
         }
 
-        function renderLibraryTree(node = libraryRoot, container = null, level = 0) {
-            if(!container) container = document.getElementById('libraryTree');
+        function renderLibraryTree(node, container, level) {
+            node = node || libraryRoot;
+            container = container || document.getElementById('libraryTree');
+            level = level || 0;
+
             if(level === 0) container.innerHTML = '';
-            
+
             const div = document.createElement('div');
             div.style.marginLeft = (level * 16) + 'px';
-            
+
             const item = document.createElement('div');
-            item.className = `flex items-center p-3 rounded-xl mb-2 ${node.id === currentLibId ? 'bg-cyan-500/20 border border-cyan-500/40' : 'bg-white/5'}`;
-            
+            item.className = 'flex items-center p-3 rounded-xl mb-2 ' + (node.id === currentLibId ? 'bg-cyan-500/20 border border-cyan-500/40' : 'bg-white/5');
+
             const isFolder = node.type === 'folder';
-            item.innerHTML = `
-                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center mr-3 text-xl">
-                    ${isFolder ? '📁' : '📚'}
-                </div>
-                <div class="flex-1">
-                    <div class="font-bold ${node.id === currentLibId ? 'text-cyan-400' : 'text-white'}">${node.name}</div>
-                    <div class="text-xs text-slate-400">${isFolder ? (node.children?.length || 0) + ' 个子项' : (node.words?.length || 0) + ' 个单词'}</div>
-                </div>
-                ${isFolder ? `<button onclick="event.stopPropagation(); createInFolder('${node.id}')" class="px-3 py-1 rounded-lg bg-cyan-500/20 text-cyan-400 text-xs mr-2">+</button>` : ''}
-                ${node.id !== 'root' ? `<button onclick="event.stopPropagation(); deleteNode('${node.id}')" class="px-3 py-1 rounded-lg bg-red-500/20 text-red-400 text-xs">删</button>` : ''}
-            `;
-            
-            item.onclick = () => isFolder ? null : switchLibrary(node.id);
+            const icon = isFolder ? '📁' : '📚';
+            const subText = isFolder ? ((node.children ? node.children.length : 0) + ' 个子项') : ((node.words ? node.words.length : 0) + ' 个单词');
+            const nameClass = node.id === currentLibId ? 'text-cyan-400' : 'text-white';
+
+            let buttons = '';
+            if(isFolder) {
+                buttons += '<button onclick="event.stopPropagation(); createInFolder('' + node.id + '')" class="px-3 py-1 rounded-lg bg-cyan-500/20 text-cyan-400 text-xs mr-2">+</button>';
+            }
+            if(node.id !== 'root') {
+                buttons += '<button onclick="event.stopPropagation(); deleteNode('' + node.id + '')" class="px-3 py-1 rounded-lg bg-red-500/20 text-red-400 text-xs">删</button>';
+            }
+
+            item.innerHTML = '<div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center mr-3 text-xl">' + icon + '</div><div class="flex-1 min-w-0"><div class="font-bold ' + nameClass + ' truncate">' + node.name + '</div><div class="text-xs text-slate-400">' + subText + '</div></div>' + buttons;
+
+            item.addEventListener('click', () => {
+                if(!isFolder) switchLibrary(node.id);
+            });
+
             div.appendChild(item);
             container.appendChild(div);
-            
+
             if(isFolder && node.children) {
                 node.children.forEach(child => renderLibraryTree(child, container, level + 1));
             }
@@ -1032,10 +1805,10 @@
             const name = prompt('名称：');
             if(!name) return;
             const isFolder = confirm('创建为文件夹？（取消则创建单词库）');
-            
+
             const parent = findNode(parentId);
             if(!parent.children) parent.children = [];
-            
+
             parent.children.push({
                 id: 'node_' + Date.now(),
                 name: name,
@@ -1043,16 +1816,17 @@
                 children: isFolder ? [] : undefined,
                 words: isFolder ? undefined : []
             });
-            
+
             saveLibrary();
             renderLibraryTree();
         }
 
-        function findNode(id, node = libraryRoot) {
+        function findNode(id, node) {
+            node = node || libraryRoot;
             if(node.id === id) return node;
             if(node.children) {
-                for(let child of node.children) {
-                    const found = findNode(id, child);
+                for(let i = 0; i < node.children.length; i++) {
+                    const found = findNode(id, node.children[i]);
                     if(found) return found;
                 }
             }
@@ -1060,8 +1834,8 @@
         }
 
         function deleteNode(id) {
-            if(!confirm('确定删除？')) return;
-            
+            if(!confirm('确定删除？此操作不可恢复。')) return;
+
             function remove(parent, id) {
                 if(!parent.children) return false;
                 const idx = parent.children.findIndex(c => c.id === id);
@@ -1069,12 +1843,12 @@
                     parent.children.splice(idx, 1);
                     return true;
                 }
-                for(let child of parent.children) {
-                    if(remove(child, id)) return true;
+                for(let i = 0; i < parent.children.length; i++) {
+                    if(remove(parent.children[i], id)) return true;
                 }
                 return false;
             }
-            
+
             remove(libraryRoot, id);
             if(currentLibId === id) {
                 currentLibId = 'default';
@@ -1083,6 +1857,7 @@
             saveLibrary();
             renderLibraryTree();
             updateStats();
+            showToast('已删除', 'success');
         }
 
         function switchLibrary(id) {
@@ -1097,27 +1872,31 @@
             else showEmpty();
         }
 
-        // 学习功能
         function loadWord(idx) {
             const lib = findLibrary(currentLibId);
             if(!lib || !lib.node.words.length) {
                 showEmpty();
                 return;
             }
-            
+
             currentIdx = idx % lib.node.words.length;
             const word = lib.node.words[currentIdx];
             currentInput = [];
-            
+
             document.getElementById('wordDisplay').textContent = word.w.split('').join(' ');
             document.getElementById('definitionDisplay').textContent = word.d;
             document.getElementById('wordIndex').textContent = currentIdx + 1;
             document.getElementById('totalCount').textContent = lib.node.words.length;
-            
+
+            document.getElementById('translationResult').classList.add('hidden');
+
             updateInputDisplay();
             renderSlots(word.w.length);
-            
-            setTimeout(() => speak(word.w), 400);
+            updateMemoryProgress(word.w);
+
+            if(settings.autoSpeak) {
+                setTimeout(() => speak(word.w), 400);
+            }
         }
 
         function updateInputDisplay() {
@@ -1136,10 +1915,10 @@
             }
         }
 
-        // 键盘控制
         function onInputAreaClick() {
             if(settings.defaultKeyboard === 'system') {
-                document.getElementById('systemInput').focus();
+                const input = document.getElementById('systemInput');
+                input.focus();
             } else {
                 showKeyboard();
             }
@@ -1148,11 +1927,16 @@
         function showKeyboard() {
             document.getElementById('virtualKeyboard').classList.add('active');
             document.getElementById('app').classList.add('no-scroll');
+
+            if(/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                document.body.classList.add('ios-locked');
+            }
         }
 
         function hideKeyboard() {
             document.getElementById('virtualKeyboard').classList.remove('active');
             document.getElementById('app').classList.remove('no-scroll');
+            document.body.classList.remove('ios-locked');
             document.getElementById('systemInput').blur();
         }
 
@@ -1165,10 +1949,10 @@
         function toggleShift() {
             isUpperCase = !isUpperCase;
             document.getElementById('shiftBtn').classList.toggle('active', isUpperCase);
-            
-            document.querySelectorAll('#letterKeyboard .key-btn:not(.function):not(.space):not(.wide)').forEach(btn => {
+
+            document.querySelectorAll('#letterKeyboard .key-btn[data-key]').forEach(btn => {
                 const text = btn.textContent;
-                if(/[a-z]/.test(text)) {
+                if(/[a-zA-Z]/.test(text)) {
                     btn.textContent = isUpperCase ? text.toUpperCase() : text.toLowerCase();
                 }
             });
@@ -1177,15 +1961,19 @@
         function typeKey(k) {
             const lib = findLibrary(currentLibId);
             if(!lib || !lib.node.words.length) return;
-            
+
             const word = lib.node.words[currentIdx].w;
             if(currentInput.length < word.length) {
                 if(isUpperCase && /[a-z]/.test(k)) k = k.toUpperCase();
                 currentInput.push(k);
                 updateInputDisplay();
                 renderSlots(word.length);
-                
+
                 if(settings.vibrate && navigator.vibrate) navigator.vibrate(10);
+
+                if(currentInput.length === word.length && settings.autoCheck) {
+                    setTimeout(checkWord, 300);
+                }
             }
         }
 
@@ -1201,11 +1989,11 @@
         function checkWord() {
             const lib = findLibrary(currentLibId);
             if(!lib || !lib.node.words.length) return;
-            
-            const word = lib.node.words[currentIdx].w;
+
+            const word = lib.node.words[currentIdx];
             const input = currentInput.join('');
-            
-            if(input === word) {
+
+            if(input === word.w) {
                 handleSuccess();
             } else {
                 handleError();
@@ -1214,20 +2002,22 @@
 
         function handleSuccess() {
             const lib = findLibrary(currentLibId);
-            const word = lib.node.words[currentIdx].w;
-            
+            const word = lib.node.words[currentIdx];
+
             document.querySelectorAll('.letter-slot').forEach(s => s.classList.add('correct'));
-            mastered.add(word);
+            mastered.add(word.w);
             localStorage.setItem('wm_mastered', JSON.stringify([...mastered]));
             streak++;
             updateStats();
-            
+
+            updateWordMemory(word.w, true);
+
             const fb = document.getElementById('feedback');
             fb.textContent = '✨ 正确！+' + Math.min(streak * 10, 50) + '分';
             fb.className = 'h-6 text-sm font-medium text-emerald-400 opacity-100';
-            
+
             if(settings.vibrate && navigator.vibrate) navigator.vibrate([50, 100, 50]);
-            
+
             setTimeout(() => {
                 fb.style.opacity = '0';
                 nextWord();
@@ -1236,39 +2026,68 @@
 
         function handleError() {
             const lib = findLibrary(currentLibId);
-            const word = lib.node.words[currentIdx].w;
-            
+            const word = lib.node.words[currentIdx];
+
             document.querySelectorAll('.letter-slot').forEach((s, i) => {
-                if(currentInput[i] !== word[i]) s.classList.add('wrong');
+                if(currentInput[i] !== word.w[i]) s.classList.add('wrong');
             });
-            
+
             streak = 0;
             updateStats();
-            
+
+            updateWordMemory(word.w, false);
+
             const fb = document.getElementById('feedback');
             fb.textContent = '❌ 错误，请重试';
             fb.className = 'h-6 text-sm font-medium text-red-400 opacity-100';
-            
+
             if(settings.vibrate && navigator.vibrate) navigator.vibrate(200);
-            
+
             setTimeout(() => {
                 fb.style.opacity = '0';
                 currentInput = [];
                 updateInputDisplay();
-                renderSlots(word.length);
+                renderSlots(word.w.length);
             }, 1200);
         }
 
         function speak(text) {
-            if('speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
-                setTimeout(() => {
-                    const u = new SpeechSynthesisUtterance(text);
-                    u.lang = 'en-US';
-                    u.rate = 0.8;
-                    window.speechSynthesis.speak(u);
-                }, 50);
+            if(!('speechSynthesis' in window)) {
+                showToast('您的浏览器不支持语音播放');
+                return;
             }
+
+            window.speechSynthesis.cancel();
+
+            setTimeout(() => {
+                const u = new SpeechSynthesisUtterance(text);
+
+                switch(settings.voicePack) {
+                    case 'uk':
+                        u.lang = 'en-GB';
+                        break;
+                    case 'us':
+                        u.lang = 'en-US';
+                        break;
+                    case 'slow':
+                        u.lang = 'en-US';
+                        u.rate = 0.5;
+                        break;
+                    default:
+                        u.lang = 'en-US';
+                        u.rate = 0.8;
+                }
+
+                const voices = window.speechSynthesis.getVoices();
+                const voice = voices.find(v => {
+                    if(settings.voicePack === 'uk') return v.lang.includes('GB');
+                    if(settings.voicePack === 'us') return v.lang.includes('US');
+                    return v.lang.includes('en');
+                });
+                if(voice) u.voice = voice;
+
+                window.speechSynthesis.speak(u);
+            }, 50);
         }
 
         function speakCurrent() {
@@ -1289,7 +2108,7 @@
         function nextWord() {
             const lib = findLibrary(currentLibId);
             if(!lib || !lib.node.words.length) return;
-            
+
             let next;
             do { next = Math.floor(Math.random() * lib.node.words.length); }
             while(next === currentIdx && lib.node.words.length > 1);
@@ -1305,7 +2124,6 @@
             document.getElementById('totalCount').textContent = '0';
         }
 
-        // 添加单词
         function updateLibrarySelect() {
             const select = document.getElementById('selectLibrary');
             select.innerHTML = '';
@@ -1319,74 +2137,173 @@
             });
         }
 
-        function addWord() {
+        async function addWord() {
             const libId = document.getElementById('selectLibrary').value;
             const w = document.getElementById('newWord').value.trim().toLowerCase();
-            const d = document.getElementById('newDef').value.trim();
-            
-            if(w && d) {
-                const lib = findLibrary(libId);
-                if(lib) {
-                    lib.node.words.push({w, d});
-                    saveLibrary();
-                    document.getElementById('newWord').value = '';
-                    document.getElementById('newDef').value = '';
-                    updateStats();
-                    updateLibrarySelect();
-                    showView('study');
-                    if(libId === currentLibId) loadWord(lib.node.words.length - 1);
-                }
+            let d = document.getElementById('newDef').value.trim();
+
+            if(!w) {
+                showToast('请输入英文单词');
+                return;
+            }
+
+            if(!d && settings.autoTranslate) {
+                const translation = await translateText(w);
+                d = translation || '';
+            }
+
+            if(!d) {
+                showToast('请输入中文释义');
+                return;
+            }
+
+            const lib = findLibrary(libId);
+            if(lib) {
+                lib.node.words.push({w: w, d: d, memory: null});
+                saveLibrary();
+                document.getElementById('newWord').value = '';
+                document.getElementById('newDef').value = '';
+                updateStats();
+                updateLibrarySelect();
+                showView('study');
+                if(libId === currentLibId) loadWord(lib.node.words.length - 1);
+                showToast('添加成功', 'success');
             }
         }
 
-        function addBulk() {
+        async function addBulk() {
             const libId = document.getElementById('selectLibrary').value;
             const lines = document.getElementById('bulkWords').value.trim().split('\n');
             let added = 0;
-            
+
             const lib = findLibrary(libId);
             if(!lib) return;
-            
-            lines.forEach(line => {
+
+            for(const line of lines) {
                 const parts = line.trim().split(/\s+/);
-                if(parts.length >= 2) {
-                    lib.node.words.push({w: parts[0].toLowerCase(), d: parts.slice(1).join(' ')});
-                    added++;
+                if(parts.length >= 1 && parts[0]) {
+                    const w = parts[0].toLowerCase();
+                    let d = parts.slice(1).join(' ');
+
+                    if(!d && settings.autoTranslate) {
+                        d = await translateText(w) || '';
+                        await new Promise(r => setTimeout(r, 300));
+                    }
+
+                    if(w && d) {
+                        lib.node.words.push({w: w, d: d, memory: null});
+                        added++;
+                    }
                 }
-            });
-            
+            }
+
             if(added > 0) {
                 saveLibrary();
                 document.getElementById('bulkWords').value = '';
                 updateStats();
                 updateLibrarySelect();
-                alert(`添加 ${added} 个单词`);
+                showToast('成功添加 ' + added + ' 个单词', 'success');
                 showView('study');
+            } else {
+                showToast('没有成功添加的单词');
             }
         }
 
-        // 系统键盘输入
-        document.getElementById('systemInput').addEventListener('input', (e) => {
+        function handleSystemInput(e) {
             const val = e.target.value;
             const lib = findLibrary(currentLibId);
             if(!lib || !lib.node.words.length) return;
-            
+
             const word = lib.node.words[currentIdx].w;
             currentInput = val.split('').slice(0, word.length);
             updateInputDisplay();
             renderSlots(word.length);
-            
+
             if(currentInput.length >= word.length) {
                 setTimeout(checkWord, 200);
             }
-        });
+        }
 
-        // 防止键盘冲突
-        document.getElementById('virtualKeyboard').addEventListener('touchstart', (e) => {
-            e.stopPropagation();
-        }, {passive: true});
+        function exportData() {
+            const data = {
+                library: libraryRoot,
+                settings: settings,
+                mastered: [...mastered],
+                memory: memoryData,
+                difficult: [...difficultWords],
+                exportTime: new Date().toISOString()
+            };
 
-        init();
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'wordmaster_backup_' + new Date().toISOString().slice(0,10) + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('数据已导出', 'success');
+        }
+
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if(!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        if(data.library) {
+                            libraryRoot = data.library;
+                            saveLibrary();
+                        }
+                        if(data.settings) {
+                            settings = Object.assign({}, settings, data.settings);
+                            localStorage.setItem('wm_settings', JSON.stringify(settings));
+                        }
+                        if(data.mastered) {
+                            mastered = new Set(data.mastered);
+                            localStorage.setItem('wm_mastered', JSON.stringify([...mastered]));
+                        }
+                        if(data.memory) {
+                            memoryData = data.memory;
+                            localStorage.setItem('wm_memory', JSON.stringify(memoryData));
+                        }
+                        if(data.difficult) {
+                            difficultWords = new Set(data.difficult);
+                            localStorage.setItem('wm_difficult', JSON.stringify([...difficultWords]));
+                        }
+
+                        init();
+                        showToast('数据导入成功', 'success');
+                    } catch(err) {
+                        showToast('数据格式错误');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        function clearAllData() {
+            if(!confirm('确定要清除所有数据吗？此操作不可恢复！')) return;
+
+            localStorage.removeItem('wm_settings');
+            localStorage.removeItem('wm_library_root');
+            localStorage.removeItem('wm_current_lib');
+            localStorage.removeItem('wm_mastered');
+            localStorage.removeItem('wm_memory');
+            localStorage.removeItem('wm_difficult');
+
+            location.reload();
+        }
+
+        function showCreateLibDialog() {
+            createInFolder('root');
+        }
     </script>
 </body>
 </html>
