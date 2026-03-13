@@ -2,698 +2,1117 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#0f172a">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0a0a0a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>WordMaster</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src='https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js'></script>
     <style>
         * {
             -webkit-tap-highlight-color: transparent;
             -webkit-touch-callout: none;
             user-select: none;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: fixed;
         }
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #0f172a);
-            background-size: 400% 400%;
-            animation: gradientShift 15s ease infinite;
+            background: linear-gradient(180deg, #0a1628 0%, #1a3a5c 50%, #0d2137 100%);
             color: white;
-            overflow-x: hidden;
-            min-height: 100vh;
         }
         
-        @keyframes gradientShift {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
+        #app {
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            position: relative;
+            padding-bottom: 20px;
+        }
+        
+        .bg-glow {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(0,200,255,0.15) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
         }
         
         .glass {
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.08);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
         }
         
         .letter-slot {
             transition: all 0.2s;
-            box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.2);
-            min-width: 44px;
-            min-height: 54px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(100, 200, 255, 0.3);
+            box-shadow: 0 0 15px rgba(0, 200, 255, 0.1), inset 0 0 20px rgba(0, 0, 0, 0.5);
+            width: 44px;
+            height: 56px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
         }
         
-        .letter-slot:active { transform: scale(0.95); }
         .letter-slot.filled { 
-            background: rgba(99, 102, 241, 0.2); 
-            border-color: #6366f1;
-            color: white;
+            background: rgba(0, 150, 255, 0.2); 
+            border-color: rgba(0, 200, 255, 0.8);
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
         }
         .letter-slot.correct { 
-            border-color: #10b981; 
-            background: rgba(16, 185, 129, 0.3);
-            box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+            border-color: #00ff88;
+            background: rgba(0, 255, 136, 0.2);
+            box-shadow: 0 0 25px rgba(0, 255, 136, 0.4);
+            color: #00ff88;
         }
         .letter-slot.wrong {
-            border-color: #ef4444;
-            background: rgba(239, 68, 68, 0.2);
+            border-color: #ff3366;
+            background: rgba(255, 51, 102, 0.2);
             animation: shake 0.5s;
         }
         
         @keyframes shake {
-            10%, 90% { transform: translate3d(-1px, 0, 0); }
-            20%, 80% { transform: translate3d(2px, 0, 0); }
-            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
-            40%, 60% { transform: translate3d(4px, 0, 0); }
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+            40%, 60% { transform: translate3d(6px, 0, 0); }
         }
         
-        .key-btn {
-            background: rgba(255,255,255,0.12);
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 10px;
-            height: 52px;
-            font-size: 20px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.1s;
-            color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-        
-        .key-btn:active { 
-            background: rgba(99, 102, 241, 0.6); 
-            transform: scale(0.95);
-        }
-        
-        .key-btn.symbol-mode {
-            background: rgba(245, 158, 11, 0.2);
-            border-color: rgba(245, 158, 11, 0.4);
-        }
-        
-        .key-btn.number-mode {
-            background: rgba(16, 185, 129, 0.2);
-            border-color: rgba(16, 185, 129, 0.4);
-        }
-        
-        .key-btn.special {
-            background: rgba(99, 102, 241, 0.35);
-            font-size: 16px;
-        }
-        
-        .key-btn.shift {
-            background: rgba(245, 158, 11, 0.25);
-            font-size: 16px;
-        }
-        
-        .key-btn.space {
-            background: rgba(255,255,255,0.08);
-            font-size: 14px;
-        }
-        
-        .key-btn.hide-keyboard {
-            background: rgba(239, 68, 68, 0.2);
-            font-size: 14px;
-        }
-        
-        .particle {
-            position: absolute;
-            pointer-events: none;
-            opacity: 0;
-            animation: floatUp 1s ease-out forwards;
-        }
-        
-        @keyframes floatUp {
-            0% { opacity: 1; transform: translateY(0) scale(1); }
-            100% { opacity: 0; transform: translateY(-100px) scale(0); }
-        }
-        
-        ::-webkit-scrollbar { display: none; }
-        
-        .word-display {
-            font-family: 'Courier New', monospace;
-            letter-spacing: 2px;
-        }
-        
-        .input-display {
-            font-family: 'Courier New', monospace;
-            letter-spacing: 4px;
-            min-height: 30px;
-        }
-        
-        .keyboard-container {
+        /* 键盘样式 - 修复布局 */
+        .keyboard-wrapper {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            background: rgba(15, 23, 42, 0.98);
-            backdrop-filter: blur(20px);
-            border-top: 1px solid rgba(255,255,255,0.1);
-            padding: 12px;
-            padding-bottom: max(12px, env(safe-area-inset-bottom));
-            z-index: 100;
+            background: linear-gradient(180deg, rgba(10,30,50,0.98) 0%, rgba(5,15,25,0.99) 100%);
+            border-top: 1px solid rgba(100, 200, 255, 0.2);
+            padding: 8px 4px calc(8px + env(safe-area-inset-bottom));
+            z-index: 1000;
+            transform: translateY(100%);
             transition: transform 0.3s ease;
         }
         
-        .keyboard-container.hidden {
-            transform: translateY(100%);
+        .keyboard-wrapper.active {
+            transform: translateY(0);
         }
         
-        .cursor-blink {
-            animation: blink 1s infinite;
+        .keyboard-row {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin-bottom: 6px;
+            padding: 0 4px;
         }
         
-        @keyframes blink {
-            0%, 50% { opacity: 1; }
-            51%, 100% { opacity: 0; }
-        }
-        
-        .show-keyboard-btn {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 56px;
-            height: 56px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        .key-btn {
+            flex: 1;
+            max-width: 36px;
+            height: 46px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            color: white;
+            font-size: 18px;
+            font-weight: 500;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
-            z-index: 90;
-            transition: all 0.3s;
+            transition: all 0.1s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
         
-        .show-keyboard-btn:active {
+        .key-btn:active {
+            background: rgba(0, 200, 255, 0.3);
             transform: scale(0.95);
         }
         
-        .show-keyboard-btn.hidden {
+        .key-btn.wide {
+            max-width: 50px;
+            font-size: 14px;
+        }
+        
+        .key-btn.extra-wide {
+            max-width: 80px;
+            font-size: 13px;
+        }
+        
+        .key-btn.space {
+            max-width: 200px;
+            font-size: 12px;
+            background: rgba(0, 150, 255, 0.15);
+        }
+        
+        .key-btn.function {
+            background: rgba(100, 150, 200, 0.25);
+        }
+        
+        .key-btn.shift.active {
+            background: rgba(255, 200, 0, 0.3);
+            color: #ffd700;
+        }
+        
+        .input-area {
+            background: rgba(0, 0, 0, 0.4);
+            border: 2px solid rgba(0, 200, 255, 0.3);
+            border-radius: 12px;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Courier New', monospace;
+            font-size: 20px;
+            letter-spacing: 6px;
+            color: #00ffff;
+            cursor: pointer;
+            padding: 10px;
+        }
+        
+        .hidden-input {
+            position: absolute;
+            left: -9999px;
             opacity: 0;
-            pointer-events: none;
         }
         
-        .library-card {
+        /* 图片上传区域 */
+        .image-upload-area {
+            border: 2px dashed rgba(0, 200, 255, 0.4);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(0, 0, 0, 0.2);
+        }
+        
+        .image-upload-area:hover, .image-upload-area.dragover {
+            border-color: #00ffff;
+            background: rgba(0, 200, 255, 0.1);
+        }
+        
+        .uploaded-image {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 12px;
+            margin-top: 10px;
+        }
+        
+        .ocr-result {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 15px;
+            border: 1px solid rgba(0, 200, 255, 0.3);
+        }
+        
+        .ocr-word {
+            display: inline-block;
+            padding: 4px 12px;
+            margin: 4px;
+            background: rgba(0, 200, 255, 0.2);
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
             transition: all 0.2s;
         }
         
-        .library-card:active {
-            transform: scale(0.98);
+        .ocr-word:hover {
+            background: rgba(0, 200, 255, 0.4);
+            transform: scale(1.05);
         }
         
-        .library-card.active {
-            background: rgba(99, 102, 241, 0.3);
-            border-color: #6366f1;
+        .ocr-word.selected {
+            background: rgba(0, 255, 136, 0.4);
+            border: 1px solid #00ff88;
         }
         
-        .word-item {
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: #00ffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .confidence-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+        
+        .confidence-high { background: rgba(0, 255, 136, 0.3); color: #00ff88; }
+        .confidence-medium { background: rgba(255, 200, 0, 0.3); color: #ffd700; }
+        .confidence-low { background: rgba(255, 100, 100, 0.3); color: #ff6464; }
+        
+        .suggestion-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 14px;
+            margin: 4px;
+            background: linear-gradient(135deg, rgba(0,200,255,0.2), rgba(100,100,255,0.2));
+            border: 1px solid rgba(0, 200, 255, 0.4);
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
             transition: all 0.2s;
         }
         
-        .word-item:active {
-            transform: scale(0.98);
+        .suggestion-chip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 200, 255, 0.3);
+        }
+        
+        .view {
+            display: none;
+            padding: 16px;
+            padding-bottom: 100px;
+        }
+        
+        .view.active {
+            display: block;
+        }
+        
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(10, 20, 35, 0.95);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
+            z-index: 100;
+        }
+        
+        .nav-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 16px;
+            color: rgba(255,255,255,0.5);
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        
+        .nav-btn.active {
+            color: #00ffff;
+        }
+        
+        .nav-btn svg {
+            width: 24px;
+            height: 24px;
+        }
+        
+        /* 修复滚动冲突 */
+        .no-scroll {
+            overflow: hidden !important;
+            touch-action: none !important;
         }
     </style>
 </head>
 <body>
+    <div class="bg-glow"></div>
     <div id="particles" class="fixed inset-0 pointer-events-none z-50"></div>
     
-    <!-- 显示键盘按钮 -->
-    <button class="show-keyboard-btn hidden" id="showKeyboardBtn" onclick="toggleKeyboard()">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <rect x="2" y="4" width="20" height="16" rx="2" stroke-width="2"/>
-            <path d="M6 8h2M10 8h2M14 8h2M18 8h2M6 12h2M10 12h2M14 12h2M18 12h2M8 16h8" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-    </button>
+    <input type="file" id="imageInput" class="hidden-input" accept="image/*" capture="environment">
+    <input type="text" id="systemInput" class="hidden-input">
     
-    <div class="container mx-auto px-4 py-4 max-w-lg pb-80">
+    <div id="app">
         <!-- 头部 -->
-        <header class="flex justify-between items-center mb-4">
-            <div class="flex items-center gap-2">
-                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-2xl font-bold shadow-lg">W</div>
+        <header class="flex justify-between items-center p-4 sticky top-0 z-40 bg-gradient-to-b from-[#0a1628] to-transparent">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-2xl font-bold shadow-lg">W</div>
                 <div>
                     <h1 class="text-xl font-bold">WordMaster</h1>
-                    <p class="text-xs text-slate-400" id="currentLibName">默认单词库</p>
+                    <p class="text-xs text-cyan-300/70" id="currentPath">默认库</p>
                 </div>
             </div>
-            <div class="flex gap-2">
-                <button onclick="showView('library')" class="p-3 rounded-xl glass active:scale-95 transition-transform" title="单词库">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-                </button>
-                <button onclick="showView('list')" class="p-3 rounded-xl glass active:scale-95 transition-transform" title="单词列表">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-                </button>
-                <button onclick="showView('add')" class="p-3 rounded-xl bg-indigo-600 active:scale-95 transition-transform shadow-lg shadow-indigo-600/30" title="添加单词">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                </button>
-            </div>
+            <button onclick="showSettings()" class="p-3 rounded-xl glass">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </button>
         </header>
 
         <!-- 统计 -->
-        <div class="grid grid-cols-3 gap-3 mb-6">
+        <div class="grid grid-cols-3 gap-3 px-4 mb-6">
             <div class="glass rounded-2xl p-4 text-center">
-                <div class="text-2xl font-bold text-indigo-400" id="totalWords">0</div>
-                <div class="text-xs text-slate-400 mt-1">总单词</div>
+                <div class="text-2xl font-bold text-cyan-400" id="totalWords">0</div>
+                <div class="text-xs text-cyan-300/50 mt-1">总单词</div>
             </div>
             <div class="glass rounded-2xl p-4 text-center">
                 <div class="text-2xl font-bold text-emerald-400" id="masteredWords">0</div>
-                <div class="text-xs text-slate-400 mt-1">已掌握</div>
+                <div class="text-xs text-emerald-300/50 mt-1">已掌握</div>
             </div>
             <div class="glass rounded-2xl p-4 text-center">
                 <div class="text-2xl font-bold text-amber-400" id="currentStreak">0</div>
-                <div class="text-xs text-slate-400 mt-1">连击</div>
+                <div class="text-xs text-amber-300/50 mt-1">连击</div>
             </div>
         </div>
 
-        <!-- 学习模式 -->
-        <div id="studyView" class="space-y-4">
+        <!-- 学习视图 -->
+        <div id="studyView" class="view active px-4">
             <div class="glass rounded-3xl p-6 relative overflow-hidden">
-                <div class="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
-                
-                <div class="relative z-10 text-center space-y-5">
-                    <!-- 进度 -->
-                    <div class="flex justify-center items-center gap-2">
-                        <span class="px-4 py-1.5 rounded-full bg-white/5 text-sm">
-                            <span id="wordIndex">1</span> / <span id="totalCount">1</span>
-                        </span>
-                    </div>
-
-                    <!-- 喇叭按钮 -->
-                    <button onclick="speakCurrent()" class="w-16 h-16 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto active:scale-95 transition-all hover:bg-indigo-500/30">
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
-                    </button>
-
-                    <!-- 单词和释义显示 -->
-                    <div class="space-y-3">
-                        <div id="wordDisplay" class="text-3xl font-bold text-white word-display tracking-[0.3em]"></div>
-                        <div id="definitionDisplay" class="text-base text-slate-300 px-4"></div>
-                    </div>
-
-                    <!-- 输入显示 -->
-                    <div class="input-display text-xl text-indigo-300 font-mono min-h-[36px] flex items-center justify-center tracking-[0.5em] bg-white/5 rounded-xl py-2">
-                        <span id="inputDisplay"></span><span class="cursor-blink text-indigo-400">|</span>
-                    </div>
-
-                    <!-- 拼写区域 -->
-                    <div id="spellingArea" class="flex flex-wrap justify-center gap-2 min-h-[60px] py-2"></div>
-
-                    <!-- 控制按钮 -->
-                    <div class="flex justify-center gap-3 pt-2">
-                        <button onclick="showHint()" class="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-medium active:scale-95 transition-transform">提示</button>
-                        <button onclick="checkWord()" class="px-6 py-2.5 rounded-xl bg-emerald-600 text-sm font-bold shadow-lg shadow-emerald-600/30 active:scale-95 transition-transform">确认</button>
-                        <button onclick="nextWord()" class="px-5 py-2.5 rounded-xl bg-indigo-600 text-sm font-bold shadow-lg shadow-indigo-600/30 active:scale-95 transition-transform">下一个</button>
-                    </div>
-
-                    <div id="feedback" class="h-6 text-sm font-medium opacity-0 transition-opacity"></div>
+                <div class="flex justify-center mb-4">
+                    <span class="px-4 py-1.5 rounded-full bg-black/30 text-sm text-cyan-300 border border-cyan-500/30">
+                        <span id="wordIndex">1</span> / <span id="totalCount">1</span>
+                    </span>
                 </div>
+
+                <button onclick="speakCurrent()" class="w-16 h-16 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center mx-auto mb-4 border border-cyan-400/30">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                </button>
+
+                <div class="text-center space-y-3 mb-6">
+                    <div id="wordDisplay" class="text-3xl font-bold text-white tracking-[0.3em] drop-shadow-[0_0_15px_rgba(0,200,255,0.5)]"></div>
+                    <div id="definitionDisplay" class="text-base text-cyan-200/70"></div>
+                </div>
+
+                <div class="input-area mb-4" id="inputArea" onclick="onInputAreaClick()">
+                    <span id="inputDisplay"></span><span class="animate-pulse text-cyan-400">|</span>
+                </div>
+
+                <div id="spellingArea" class="flex flex-wrap justify-center gap-2 min-h-[60px] py-2 mb-4"></div>
+
+                <div class="flex justify-center gap-3">
+                    <button onclick="showHint()" class="px-5 py-2.5 rounded-xl bg-white/5 border border-white/20 text-sm">提示</button>
+                    <button onclick="checkWord()" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-sm font-bold">确认</button>
+                    <button onclick="nextWord()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-sm font-bold">下一个</button>
+                </div>
+
+                <div id="feedback" class="h-6 text-sm font-medium opacity-0 transition-opacity text-center mt-3"></div>
             </div>
         </div>
 
-        <!-- 单词库管理 -->
-        <div id="libraryView" class="hidden space-y-4">
+        <!-- 图片识别视图 -->
+        <div id="ocrView" class="view px-4">
             <div class="glass rounded-3xl p-6 space-y-4">
-                <div class="flex justify-between items-center">
-                    <h2 class="text-xl font-bold">单词库管理</h2>
-                    <button onclick="showCreateLibDialog()" class="px-4 py-2 rounded-xl bg-indigo-600 text-sm font-bold shadow-lg">+ 新建库</button>
+                <h2 class="text-xl font-bold flex items-center gap-2">
+                    <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    图片识别单词
+                </h2>
+                
+                <div class="image-upload-area" id="uploadArea" onclick="document.getElementById('imageInput').click()">
+                    <svg class="w-12 h-12 mx-auto mb-3 text-cyan-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    <p class="text-sm text-cyan-200/70">点击拍照或上传图片</p>
+                    <p class="text-xs text-slate-400 mt-1">支持自动识别、补全、纠错</p>
                 </div>
                 
-                <!-- 库列表 -->
-                <div id="libraryList" class="space-y-3 max-h-[400px] overflow-y-auto">
-                    <!-- 动态生成 -->
+                <div id="ocrLoading" class="hidden">
+                    <div class="loading-spinner"></div>
+                    <p class="text-center text-sm text-cyan-300/70">正在识别图片内容...</p>
+                </div>
+                
+                <div id="ocrResult" class="hidden">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-sm font-bold">识别结果</span>
+                        <span id="ocrConfidence" class="confidence-badge"></span>
+                    </div>
+                    <img id="previewImage" class="uploaded-image mx-auto">
+                    
+                    <div class="mt-4">
+                        <p class="text-xs text-slate-400 mb-2">识别的单词（点击选择）：</p>
+                        <div id="ocrWords" class="flex flex-wrap"></div>
+                    </div>
+                    
+                    <div id="smartSuggestions" class="mt-4 hidden">
+                        <p class="text-xs text-cyan-300/70 mb-2">💡 智能补全建议：</p>
+                        <div id="suggestionList" class="flex flex-wrap"></div>
+                    </div>
+                    
+                    <div class="mt-4 space-y-3">
+                        <input type="text" id="ocrWordInput" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white" placeholder="英文单词">
+                        <input type="text" id="ocrDefInput" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white" placeholder="中文释义（可选）">
+                        
+                        <div class="flex gap-2">
+                            <select id="ocrLibSelect" class="flex-1 px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white text-sm"></select>
+                            <button onclick="addOcrWord()" class="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 font-bold text-sm">添加</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- 单词列表 -->
-        <div id="listView" class="hidden space-y-4">
+        <!-- 库管理视图 -->
+        <div id="libraryView" class="view px-4">
             <div class="glass rounded-3xl p-4">
                 <div class="flex justify-between items-center mb-4">
-                    <div>
-                        <h2 class="text-lg font-bold">单词列表</h2>
-                        <p class="text-xs text-slate-400" id="listLibName">当前库</p>
-                    </div>
-                    <button onclick="clearAll()" class="text-sm text-red-400 px-3 py-1 rounded-lg bg-red-500/10">清空</button>
+                    <h2 class="text-xl font-bold">单词库</h2>
+                    <button onclick="showCreateLibDialog()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-sm font-bold">+ 新建</button>
                 </div>
-                <div id="wordList" class="space-y-2 max-h-[400px] overflow-y-auto"></div>
-                <div id="emptyState" class="hidden text-center py-8 text-slate-500 text-sm">暂无单词</div>
+                <div id="libraryTree" class="space-y-2 max-h-[60vh] overflow-y-auto"></div>
             </div>
         </div>
 
-        <!-- 添加单词 -->
-        <div id="addView" class="hidden space-y-4">
+        <!-- 添加视图 -->
+        <div id="addView" class="view px-4">
             <div class="glass rounded-3xl p-6 space-y-4">
-                <h2 class="text-xl font-bold">添加新单词</h2>
-                
-                <!-- 选择单词库 -->
-                <div>
-                    <label class="block text-sm text-slate-400 mb-2">选择单词库</label>
-                    <select id="selectLibrary" class="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-indigo-500 focus:outline-none text-white">
-                        <!-- 动态生成选项 -->
-                    </select>
-                </div>
-                
-                <div>
-                    <label class="block text-sm text-slate-400 mb-2">英文单词</label>
-                    <input type="text" id="newWord" class="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-indigo-500 focus:outline-none text-white text-lg" placeholder="例如：hello">
-                </div>
-                <div>
-                    <label class="block text-sm text-slate-400 mb-2">中文释义</label>
-                    <input type="text" id="newDef" class="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-indigo-500 focus:outline-none text-white" placeholder="例如：你好">
-                </div>
+                <h2 class="text-xl font-bold">添加单词</h2>
+                <select id="selectLibrary" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white"></select>
+                <input type="text" id="newWord" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white text-lg" placeholder="英文单词">
+                <input type="text" id="newDef" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-white" placeholder="中文释义">
                 <div class="flex gap-3">
-                    <button onclick="showView('study')" class="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 text-sm font-medium">取消</button>
-                    <button onclick="addWord()" class="flex-1 py-3 rounded-xl bg-indigo-600 text-sm font-bold shadow-lg">添加</button>
+                    <button onclick="addWord()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 font-bold">添加</button>
                 </div>
-                
-                <div class="pt-4 border-t border-white/10">
-                    <label class="block text-sm text-slate-400 mb-2">批量导入（每行：单词 释义）</label>
-                    <textarea id="bulkWords" rows="3" class="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-indigo-500 focus:outline-none text-sm" placeholder="apple 苹果&#10;book 书"></textarea>
-                    <button onclick="addBulk()" class="mt-3 w-full py-3 rounded-xl bg-white/5 border border-white/10 text-sm font-medium">批量导入</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- 创建库对话框 -->
-        <div id="createLibDialog" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div class="glass rounded-3xl p-6 w-full max-w-sm space-y-4">
-                <h3 class="text-lg font-bold">新建单词库</h3>
-                <input type="text" id="newLibName" class="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-indigo-500 focus:outline-none text-white" placeholder="输入库名，例如：四级词汇">
-                <div class="flex gap-3">
-                    <button onclick="closeCreateLibDialog()" class="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 text-sm">取消</button>
-                    <button onclick="createLibrary()" class="flex-1 py-3 rounded-xl bg-indigo-600 text-sm font-bold">创建</button>
-                </div>
+                <textarea id="bulkWords" rows="3" class="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-500/30 text-sm" placeholder="批量导入：apple 苹果&#10;book 书"></textarea>
+                <button onclick="addBulk()" class="w-full py-3 rounded-xl bg-white/5 border border-white/20 text-sm">批量导入</button>
             </div>
         </div>
     </div>
 
-    <!-- 输入法键盘 -->
-    <div class="keyboard-container" id="keyboardContainer">
-        <div class="max-w-lg mx-auto space-y-2">
-            <!-- 功能行 -->
-            <div class="grid grid-cols-4 gap-2">
-                <button class="key-btn symbol-mode" id="symbolBtn" onclick="toggleSymbolMode()">符</button>
-                <button class="key-btn number-mode" id="numberBtn" onclick="toggleNumberMode()">123</button>
-                <button class="key-btn shift" id="shiftBtn" onclick="toggleShift()">⇧</button>
-                <button class="key-btn hide-keyboard" onclick="hideKeyboard()">⌨️ 隐藏</button>
+    <!-- 底部导航 -->
+    <nav class="bottom-nav">
+        <button class="nav-btn active" onclick="showView('study')">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+            <span>学习</span>
+        </button>
+        <button class="nav-btn" onclick="showView('ocr')">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span>识图</span>
+        </button>
+        <button class="nav-btn" onclick="showView('library')">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            <span>词库</span>
+        </button>
+        <button class="nav-btn" onclick="showView('add')">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            <span>添加</span>
+        </button>
+    </nav>
+
+    <!-- 虚拟键盘 -->
+    <div class="keyboard-wrapper" id="virtualKeyboard">
+        <div class="flex justify-between px-4 mb-2">
+            <div class="flex gap-2">
+                <button class="text-xs px-3 py-1 rounded bg-white/10" onclick="toggleSymbolMode()">符</button>
+                <button class="text-xs px-3 py-1 rounded bg-white/10" onclick="toggleShift()" id="shiftBtn">⇧</button>
             </div>
-            
-            <!-- 键盘区域 -->
-            <div id="keyboardArea">
-                <!-- 字母键盘 -->
-                <div class="space-y-2" id="letterKeyboard">
-                    <div class="grid grid-cols-10 gap-2">
-                        <button class="key-btn" onclick="typeKey('q')">Q</button>
-                        <button class="key-btn" onclick="typeKey('w')">W</button>
-                        <button class="key-btn" onclick="typeKey('e')">E</button>
-                        <button class="key-btn" onclick="typeKey('r')">R</button>
-                        <button class="key-btn" onclick="typeKey('t')">T</button>
-                        <button class="key-btn" onclick="typeKey('y')">Y</button>
-                        <button class="key-btn" onclick="typeKey('u')">U</button>
-                        <button class="key-btn" onclick="typeKey('i')">I</button>
-                        <button class="key-btn" onclick="typeKey('o')">O</button>
-                        <button class="key-btn" onclick="typeKey('p')">P</button>
-                    </div>
-                    <div class="grid grid-cols-10 gap-2 px-4">
-                        <button class="key-btn" onclick="typeKey('a')">A</button>
-                        <button class="key-btn" onclick="typeKey('s')">S</button>
-                        <button class="key-btn" onclick="typeKey('d')">D</button>
-                        <button class="key-btn" onclick="typeKey('f')">F</button>
-                        <button class="key-btn" onclick="typeKey('g')">G</button>
-                        <button class="key-btn" onclick="typeKey('h')">H</button>
-                        <button class="key-btn" onclick="typeKey('j')">J</button>
-                        <button class="key-btn" onclick="typeKey('k')">K</button>
-                        <button class="key-btn" onclick="typeKey('l')">L</button>
-                        <button class="key-btn special" onclick="backspace()">⌫</button>
-                    </div>
-                    <div class="grid grid-cols-9 gap-2 px-2">
-                        <button class="key-btn" onclick="typeKey('z')">Z</button>
-                        <button class="key-btn" onclick="typeKey('x')">X</button>
-                        <button class="key-btn" onclick="typeKey('c')">C</button>
-                        <button class="key-btn" onclick="typeKey('v')">V</button>
-                        <button class="key-btn" onclick="typeKey('b')">B</button>
-                        <button class="key-btn" onclick="typeKey('n')">N</button>
-                        <button class="key-btn" onclick="typeKey('m')">M</button>
-                        <button class="key-btn special col-span-2" onclick="checkWord()">Enter</button>
-                    </div>
+            <button class="text-xs px-3 py-1 rounded bg-red-500/20 text-red-300" onclick="hideKeyboard()">收起</button>
+        </div>
+        
+        <div id="letterKeyboard">
+            <div class="keyboard-row">
+                <button class="key-btn" onclick="typeKey('q')">q</button>
+                <button class="key-btn" onclick="typeKey('w')">w</button>
+                <button class="key-btn" onclick="typeKey('e')">e</button>
+                <button class="key-btn" onclick="typeKey('r')">r</button>
+                <button class="key-btn" onclick="typeKey('t')">t</button>
+                <button class="key-btn" onclick="typeKey('y')">y</button>
+                <button class="key-btn" onclick="typeKey('u')">u</button>
+                <button class="key-btn" onclick="typeKey('i')">i</button>
+                <button class="key-btn" onclick="typeKey('o')">o</button>
+                <button class="key-btn" onclick="typeKey('p')">p</button>
+            </div>
+            <div class="keyboard-row">
+                <button class="key-btn" onclick="typeKey('a')">a</button>
+                <button class="key-btn" onclick="typeKey('s')">s</button>
+                <button class="key-btn" onclick="typeKey('d')">d</button>
+                <button class="key-btn" onclick="typeKey('f')">f</button>
+                <button class="key-btn" onclick="typeKey('g')">g</button>
+                <button class="key-btn" onclick="typeKey('h')">h</button>
+                <button class="key-btn" onclick="typeKey('j')">j</button>
+                <button class="key-btn" onclick="typeKey('k')">k</button>
+                <button class="key-btn" onclick="typeKey('l')">l</button>
+                <button class="key-btn function" onclick="backspace()">⌫</button>
+            </div>
+            <div class="keyboard-row">
+                <button class="key-btn wide" onclick="typeKey('z')">z</button>
+                <button class="key-btn" onclick="typeKey('x')">x</button>
+                <button class="key-btn" onclick="typeKey('c')">c</button>
+                <button class="key-btn" onclick="typeKey('v')">v</button>
+                <button class="key-btn" onclick="typeKey('b')">b</button>
+                <button class="key-btn" onclick="typeKey('n')">n</button>
+                <button class="key-btn" onclick="typeKey('m')">m</button>
+                <button class="key-btn extra-wide function" onclick="checkWord()">Enter</button>
+            </div>
+            <div class="keyboard-row">
+                <button class="key-btn wide" onclick="toggleSymbolMode()">123</button>
+                <button class="key-btn space" onclick="typeKey(' ')">space</button>
+                <button class="key-btn wide" onclick="typeKey('.')">.</button>
+            </div>
+        </div>
+        
+        <div id="symbolKeyboard" class="hidden">
+            <div class="keyboard-row">
+                <button class="key-btn" onclick="typeKey('1')">1</button>
+                <button class="key-btn" onclick="typeKey('2')">2</button>
+                <button class="key-btn" onclick="typeKey('3')">3</button>
+                <button class="key-btn" onclick="typeKey('4')">4</button>
+                <button class="key-btn" onclick="typeKey('5')">5</button>
+                <button class="key-btn" onclick="typeKey('6')">6</button>
+                <button class="key-btn" onclick="typeKey('7')">7</button>
+                <button class="key-btn" onclick="typeKey('8')">8</button>
+                <button class="key-btn" onclick="typeKey('9')">9</button>
+                <button class="key-btn" onclick="typeKey('0')">0</button>
+            </div>
+            <div class="keyboard-row">
+                <button class="key-btn" onclick="typeKey('-')">-</button>
+                <button class="key-btn" onclick="typeKey('+')">+</button>
+                <button class="key-btn" onclick="typeKey('*')">*</button>
+                <button class="key-btn" onclick="typeKey('/')">/</button>
+                <button class="key-btn" onclick="typeKey('=')">=</button>
+                <button class="key-btn" onclick="typeKey('(')">(</button>
+                <button class="key-btn" onclick="typeKey(')')">)</button>
+                <button class="key-btn" onclick="typeKey('!')">!</button>
+                <button class="key-btn" onclick="typeKey('?')">?</button>
+                <button class="key-btn function" onclick="backspace()">⌫</button>
+            </div>
+            <div class="keyboard-row">
+                <button class="key-btn wide" onclick="toggleSymbolMode()">ABC</button>
+                <button class="key-btn space" onclick="typeKey(' ')">space</button>
+                <button class="key-btn extra-wide function" onclick="checkWord()">Enter</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置弹窗 -->
+    <div id="settingsModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-[2000] hidden flex items-center justify-center p-4">
+        <div class="glass rounded-3xl p-6 w-full max-w-sm space-y-4">
+            <h3 class="text-xl font-bold text-center">设置</h3>
+            <div class="space-y-3">
+                <div class="flex justify-between items-center p-3 rounded-xl bg-white/5">
+                    <span>默认键盘</span>
+                    <select id="defaultKeyboard" class="bg-black/30 rounded-lg px-3 py-1 text-sm" onchange="saveSettings()">
+                        <option value="virtual">虚拟键盘</option>
+                        <option value="system">系统输入法</option>
+                    </select>
                 </div>
-                
-                <!-- 符号键盘 -->
-                <div class="space-y-2 hidden" id="symbolKeyboard">
-                    <div class="grid grid-cols-10 gap-2">
-                        <button class="key-btn" onclick="typeKey('-')">-</button>
-                        <button class="key-btn" onclick="typeKey(''')">'</button>
-                        <button class="key-btn" onclick="typeKey('"')">"</button>
-                        <button class="key-btn" onclick="typeKey('.')">.</button>
-                        <button class="key-btn" onclick="typeKey(',')">,</button>
-                        <button class="key-btn" onclick="typeKey('!')">!</button>
-                        <button class="key-btn" onclick="typeKey('?')">?</button>
-                        <button class="key-btn" onclick="typeKey('(')">(</button>
-                        <button class="key-btn" onclick="typeKey(')')">)</button>
-                        <button class="key-btn" onclick="typeKey('@')">@</button>
-                    </div>
-                    <div class="grid grid-cols-10 gap-2">
-                        <button class="key-btn" onclick="typeKey('#')">#</button>
-                        <button class="key-btn" onclick="typeKey('$')">$</button>
-                        <button class="key-btn" onclick="typeKey('%')">%</button>
-                        <button class="key-btn" onclick="typeKey('&')">&</button>
-                        <button class="key-btn" onclick="typeKey('*')">*</button>
-                        <button class="key-btn" onclick="typeKey('+')">+</button>
-                        <button class="key-btn" onclick="typeKey('=')">=</button>
-                        <button class="key-btn" onclick="typeKey('/')">/</button>
-                        <button class="key-btn" onclick="typeKey('\\')">\</button>
-                        <button class="key-btn" onclick="typeKey('|')">|</button>
-                    </div>
-                    <div class="grid grid-cols-10 gap-2">
-                        <button class="key-btn" onclick="typeKey('[')">[</button>
-                        <button class="key-btn" onclick="typeKey(']')">]</button>
-                        <button class="key-btn" onclick="typeKey('{')">{</button>
-                        <button class="key-btn" onclick="typeKey('}')">}</button>
-                        <button class="key-btn" onclick="typeKey('<')">&lt;</button>
-                        <button class="key-btn" onclick="typeKey('>')">&gt;</button>
-                        <button class="key-btn" onclick="typeKey(':')">:</button>
-                        <button class="key-btn" onclick="typeKey(';')">;</button>
-                        <button class="key-btn" onclick="typeKey('`')">`</button>
-                        <button class="key-btn" onclick="typeKey('~')">~</button>
-                    </div>
-                    <div class="grid grid-cols-5 gap-2">
-                        <button class="key-btn" onclick="typeKey('^')">^</button>
-                        <button class="key-btn" onclick="typeKey('_')">_</button>
-                        <button class="key-btn special col-span-2" onclick="backspace()">⌫</button>
-                        <button class="key-btn special" onclick="checkWord()">Enter</button>
-                    </div>
-                </div>
-                
-                <!-- 数字键盘 -->
-                <div class="space-y-2 hidden" id="numberKeyboard">
-                    <div class="grid grid-cols-10 gap-2">
-                        <button class="key-btn" onclick="typeKey('1')">1</button>
-                        <button class="key-btn" onclick="typeKey('2')">2</button>
-                        <button class="key-btn" onclick="typeKey('3')">3</button>
-                        <button class="key-btn" onclick="typeKey('4')">4</button>
-                        <button class="key-btn" onclick="typeKey('5')">5</button>
-                        <button class="key-btn" onclick="typeKey('6')">6</button>
-                        <button class="key-btn" onclick="typeKey('7')">7</button>
-                        <button class="key-btn" onclick="typeKey('8')">8</button>
-                        <button class="key-btn" onclick="typeKey('9')">9</button>
-                        <button class="key-btn" onclick="typeKey('0')">0</button>
-                    </div>
-                    <div class="grid grid-cols-6 gap-2">
-                        <button class="key-btn" onclick="typeKey('+')">+</button>
-                        <button class="key-btn" onclick="typeKey('-')">-</button>
-                        <button class="key-btn" onclick="typeKey('*')">*</button>
-                        <button class="key-btn" onclick="typeKey('/')">/</button>
-                        <button class="key-btn" onclick="typeKey('=')">=</button>
-                        <button class="key-btn" onclick="typeKey('.')">.</button>
-                    </div>
-                    <div class="grid grid-cols-4 gap-2">
-                        <button class="key-btn special" onclick="backspace()">⌫</button>
-                        <button class="key-btn space col-span-2" onclick="typeKey(' ')">space</button>
-                        <button class="key-btn special" onclick="checkWord()">Enter</button>
-                    </div>
+                <div class="flex justify-between items-center p-3 rounded-xl bg-white/5">
+                    <span>按键震动</span>
+                    <button id="vibrateToggle" class="w-12 h-6 rounded-full bg-indigo-600 relative" onclick="toggleSetting('vibrate')">
+                        <span class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full transition-transform"></span>
+                    </button>
                 </div>
             </div>
-            
-            <!-- 空格行 -->
-            <div class="grid grid-cols-5 gap-2 pt-1" id="spaceRow">
-                <button class="key-btn" onclick="typeKey(',')">,</button>
-                <button class="key-btn space col-span-3" onclick="typeKey(' ')">space 空格</button>
-                <button class="key-btn" onclick="typeKey('.')">.</button>
-            </div>
+            <button onclick="closeSettings()" class="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 font-bold">确定</button>
         </div>
     </div>
 
     <script>
-        // 数据存储结构
-        let libraries = JSON.parse(localStorage.getItem('wm_libraries')) || {
-            'default': { name: '默认单词库', words: [
-                {w:"hello", d:"你好，打招呼"},
-                {w:"world", d:"世界"},
-                {w:"study", d:"学习"}
-            ]}
+        // 数据存储
+        let settings = JSON.parse(localStorage.getItem('wm_settings')) || {
+            defaultKeyboard: 'virtual',
+            vibrate: true
         };
+        
+        let libraryRoot = JSON.parse(localStorage.getItem('wm_library_root')) || {
+            id: 'root', name: '单词库', type: 'folder',
+            children: [{ id: 'default', name: '默认库', type: 'library', words: [
+                {w:"hello", d:"你好"}, {w:"world", d:"世界"}, {w:"study", d:"学习"}
+            ]}]
+        };
+        
         let currentLibId = localStorage.getItem('wm_current_lib') || 'default';
-        let currentIdx = 0;
-        let currentInput = [];
-        let streak = 0;
+        let currentIdx = 0, currentInput = [], streak = 0;
         let mastered = new Set(JSON.parse(localStorage.getItem('wm_mastered') || '[]'));
-        let isUpperCase = false;
-        let currentMode = 'letter';
+        let isUpperCase = false, isSymbolMode = false;
+        let ocrSelectedWord = '';
+
+        // 常用英语单词词典（用于智能补全）
+        const commonWords = [
+            "the","be","to","of","and","a","in","that","have","i","it","for","not","on","with","he","as","you","do","at",
+            "this","but","his","by","from","they","we","say","her","she","or","an","will","my","one","all","would","there",
+            "their","what","so","up","out","if","about","who","get","which","go","me","when","make","can","like","time","no",
+            "just","him","know","take","people","into","year","your","good","some","could","them","see","other","than","then",
+            "now","look","only","come","its","over","think","also","back","after","use","two","how","our","work","first","well",
+            "way","even","new","want","because","any","these","give","day","most","us","is","was","are","were","been","has","had",
+            "did","does","doing","done","being","having","hello","world","study","english","learn","word","book","read","write",
+            "speak","listen","school","student","teacher","class","lesson","test","exam","knowledge","education","university"
+        ];
 
         function init() {
+            loadSettings();
             updateLibrarySelect();
-            updateLibraryList();
+            updateOcrLibrarySelect();
+            renderLibraryTree();
             updateStats();
-            updateCurrentLibDisplay();
-            if(getCurrentLib().words.length) loadWord(0);
+            updateCurrentPath();
+            const lib = findLibrary(currentLibId);
+            if(lib && lib.node.words.length) loadWord(0);
             else showEmpty();
+            
+            // 图片上传监听
+            document.getElementById('imageInput').addEventListener('change', handleImageUpload);
+            
+            // 拖拽上传
+            const uploadArea = document.getElementById('uploadArea');
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if(files.length) processImage(files[0]);
+            });
         }
 
-        function getCurrentLib() {
-            return libraries[currentLibId] || libraries['default'];
+        function loadSettings() {
+            document.getElementById('defaultKeyboard').value = settings.defaultKeyboard;
+            updateToggle('vibrateToggle', settings.vibrate);
         }
 
-        function saveLibraries() {
-            localStorage.setItem('wm_libraries', JSON.stringify(libraries));
+        function updateToggle(id, value) {
+            const btn = document.getElementById(id);
+            const dot = btn.querySelector('span');
+            btn.className = value ? 'w-12 h-6 rounded-full bg-indigo-600 relative' : 'w-12 h-6 rounded-full bg-gray-600 relative';
+            dot.style.transform = value ? 'translateX(0)' : 'translateX(-24px)';
+        }
+
+        function toggleSetting(key) {
+            settings[key] = !settings[key];
+            localStorage.setItem('wm_settings', JSON.stringify(settings));
+            loadSettings();
+        }
+
+        function saveSettings() {
+            settings.defaultKeyboard = document.getElementById('defaultKeyboard').value;
+            localStorage.setItem('wm_settings', JSON.stringify(settings));
+        }
+
+        function showSettings() {
+            document.getElementById('settingsModal').classList.remove('hidden');
+            hideKeyboard();
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        // 视图切换
+        function showView(viewName) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            
+            document.getElementById(viewName + 'View').classList.add('active');
+            const navIndex = ['study','ocr','library','add'].indexOf(viewName);
+            if(navIndex >= 0) document.querySelectorAll('.nav-btn')[navIndex].classList.add('active');
+            
+            hideKeyboard();
+            
+            if(viewName === 'library') renderLibraryTree();
+            if(viewName === 'add') updateLibrarySelect();
+            if(viewName === 'ocr') updateOcrLibrarySelect();
+        }
+
+        // 图片识别功能
+        async function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if(file) processImage(file);
+        }
+
+        async function processImage(file) {
+            document.getElementById('ocrLoading').classList.remove('hidden');
+            document.getElementById('ocrResult').classList.add('hidden');
+            
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const img = new Image();
+                img.onload = async () => {
+                    // 预处理图片
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    // 调整大小以提高识别率
+                    const maxSize = 1200;
+                    let width = img.width, height = img.height;
+                    if(width > maxSize || height > maxSize) {
+                        if(width > height) {
+                            height = (height / width) * maxSize;
+                            width = maxSize;
+                        } else {
+                            width = (width / height) * maxSize;
+                            height = maxSize;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    // 增强对比度
+                    ctx.filter = 'contrast(1.2) brightness(1.1)';
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    const processedImage = canvas.toDataURL('image/jpeg', 0.9);
+                    document.getElementById('previewImage').src = processedImage;
+                    
+                    try {
+                        const result = await Tesseract.recognize(
+                            processedImage,
+                            'eng',
+                            { 
+                                logger: m => console.log(m),
+                                tessedit_char_whitelist: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_\'.',
+                                tessedit_pageseg_mode: '6'
+                            }
+                        );
+                        
+                        displayOcrResult(result);
+                    } catch(err) {
+                        alert('识别失败：' + err.message);
+                        document.getElementById('ocrLoading').classList.add('hidden');
+                    }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function displayOcrResult(result) {
+            document.getElementById('ocrLoading').classList.add('hidden');
+            document.getElementById('ocrResult').classList.remove('hidden');
+            
+            const text = result.data.text.trim();
+            const confidence = result.data.confidence;
+            
+            // 显示置信度
+            const confBadge = document.getElementById('ocrConfidence');
+            confBadge.textContent = '置信度: ' + Math.round(confidence) + '%';
+            confBadge.className = 'confidence-badge ' + (confidence > 80 ? 'confidence-high' : confidence > 50 ? 'confidence-medium' : 'confidence-low');
+            
+            // 提取单词
+            const words = extractWords(text);
+            const wordsContainer = document.getElementById('ocrWords');
+            wordsContainer.innerHTML = '';
+            
+            words.forEach((word, idx) => {
+                const span = document.createElement('span');
+                span.className = 'ocr-word';
+                span.textContent = word;
+                span.onclick = () => selectOcrWord(word, span);
+                wordsContainer.appendChild(span);
+            });
+            
+            // 智能补全建议
+            generateSmartSuggestions(words);
+            
+            // 自动选择第一个单词
+            if(words.length > 0) {
+                selectOcrWord(words[0], wordsContainer.children[0]);
+            }
+        }
+
+        function extractWords(text) {
+            // 清理和分割文本
+            const cleaned = text
+                .replace(/[^\w\s\-']/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+            
+            const words = cleaned.split(/\s+/)
+                .map(w => w.toLowerCase().trim())
+                .filter(w => w.length >= 2 && w.length <= 20)
+                .filter((w, i, arr) => arr.indexOf(w) === i); // 去重
+            
+            return words.slice(0, 10); // 最多显示10个
+        }
+
+        function generateSmartSuggestions(detectedWords) {
+            const suggestionsDiv = document.getElementById('smartSuggestions');
+            const listDiv = document.getElementById('suggestionList');
+            listDiv.innerHTML = '';
+            
+            const suggestions = new Set();
+            
+            detectedWords.forEach(word => {
+                // 1. 模糊匹配常见单词
+                if(word.length >= 3) {
+                    commonWords.forEach(common => {
+                        const dist = levenshteinDistance(word, common);
+                        if(dist <= 2 && dist > 0) {
+                            suggestions.add(JSON.stringify({word: common, reason: '可能是', original: word}));
+                        }
+                    });
+                }
+                
+                // 2. 补全缺少的字母
+                if(word.length >= 4) {
+                    // 检查是否是某个常见单词的子串
+                    commonWords.forEach(common => {
+                        if(common.includes(word) && common !== word) {
+                            suggestions.add(JSON.stringify({word: common, reason: '补全为', original: word}));
+                        }
+                        if(word.includes(common) && common.length >= 4) {
+                            suggestions.add(JSON.stringify({word: common, reason: '提取为', original: word}));
+                        }
+                    });
+                }
+            });
+            
+            const suggestionArray = Array.from(suggestions).map(s => JSON.parse(s)).slice(0, 6);
+            
+            if(suggestionArray.length > 0) {
+                suggestionsDiv.classList.remove('hidden');
+                suggestionArray.forEach(sug => {
+                    const chip = document.createElement('div');
+                    chip.className = 'suggestion-chip';
+                    chip.innerHTML = `<span class="text-xs text-cyan-300/70 mr-1">${sug.reason}</span><span class="font-bold">${sug.word}</span>`;
+                    chip.onclick = () => {
+                        document.getElementById('ocrWordInput').value = sug.word;
+                        ocrSelectedWord = sug.word;
+                    };
+                    listDiv.appendChild(chip);
+                });
+            } else {
+                suggestionsDiv.classList.add('hidden');
+            }
+        }
+
+        function levenshteinDistance(a, b) {
+            const matrix = [];
+            for(let i = 0; i <= b.length; i++) matrix[i] = [i];
+            for(let j = 0; j <= a.length; j++) matrix[0][j] = j;
+            
+            for(let i = 1; i <= b.length; i++) {
+                for(let j = 1; j <= a.length; j++) {
+                    matrix[i][j] = b[i-1] === a[j-1] ? 
+                        matrix[i-1][j-1] : 
+                        Math.min(matrix[i-1][j-1] + 1, matrix[i][j-1] + 1, matrix[i-1][j] + 1);
+                }
+            }
+            return matrix[b.length][a.length];
+        }
+
+        function selectOcrWord(word, element) {
+            document.querySelectorAll('.ocr-word').forEach(el => el.classList.remove('selected'));
+            element.classList.add('selected');
+            document.getElementById('ocrWordInput').value = word;
+            ocrSelectedWord = word;
+        }
+
+        function updateOcrLibrarySelect() {
+            const select = document.getElementById('ocrLibSelect');
+            select.innerHTML = '';
+            const libs = getAllLibraries();
+            libs.forEach(lib => {
+                const option = document.createElement('option');
+                option.value = lib.id;
+                option.textContent = lib.path;
+                if(lib.id === currentLibId) option.selected = true;
+                select.appendChild(option);
+            });
+        }
+
+        function addOcrWord() {
+            const word = document.getElementById('ocrWordInput').value.trim().toLowerCase();
+            const def = document.getElementById('ocrDefInput').value.trim();
+            const libId = document.getElementById('ocrLibSelect').value;
+            
+            if(!word) {
+                alert('请输入单词');
+                return;
+            }
+            
+            const lib = findLibrary(libId);
+            if(lib) {
+                lib.node.words.push({
+                    w: word,
+                    d: def || '(图片识别)'
+                });
+                saveLibrary();
+                updateStats();
+                updateLibrarySelect();
+                updateOcrLibrarySelect();
+                
+                alert(`已添加 "${word}" 到 ${lib.node.name}`);
+                document.getElementById('ocrWordInput').value = '';
+                document.getElementById('ocrDefInput').value = '';
+            }
+        }
+
+        // 库操作
+        function findLibrary(id, node = libraryRoot, path = []) {
+            if(node.id === id && node.type === 'library') return {node, path};
+            if(node.children) {
+                for(let child of node.children) {
+                    const result = findLibrary(id, child, [...path, node]);
+                    if(result) return result;
+                }
+            }
+            return null;
+        }
+
+        function getAllLibraries(node = libraryRoot, list = [], path = '') => {
+            const currentPath = path ? path + ' > ' + node.name : node.name;
+            if(node.type === 'library') {
+                list.push({id: node.id, name: node.name, path: currentPath});
+            }
+            if(node.children) {
+                node.children.forEach(child => getAllLibraries(child, list, currentPath));
+            }
+            return list;
+        }
+
+        function saveLibrary() {
+            localStorage.setItem('wm_library_root', JSON.stringify(libraryRoot));
             localStorage.setItem('wm_current_lib', currentLibId);
         }
 
-        function updateCurrentLibDisplay() {
-            const lib = getCurrentLib();
-            document.getElementById('currentLibName').textContent = lib.name;
-            document.getElementById('listLibName').textContent = '当前：' + lib.name;
+        function updateCurrentPath() {
+            const result = findLibrary(currentLibId);
+            const pathStr = result ? result.path.slice(1).map(n => n.name).join(' > ') + ' > ' + result.node.name : '默认库';
+            document.getElementById('currentPath').textContent = pathStr;
         }
 
         function updateStats() {
-            const lib = getCurrentLib();
-            document.getElementById('totalWords').textContent = lib.words.length;
+            const lib = findLibrary(currentLibId);
+            const count = lib ? lib.node.words.length : 0;
+            document.getElementById('totalWords').textContent = count;
             document.getElementById('masteredWords').textContent = mastered.size;
             document.getElementById('currentStreak').textContent = streak;
         }
 
-        function showView(view) {
-            ['study', 'library', 'list', 'add'].forEach(v => {
-                document.getElementById(v + 'View').classList.add('hidden');
-            });
-            document.getElementById(view + 'View').classList.remove('hidden');
+        function renderLibraryTree(node = libraryRoot, container = null, level = 0) {
+            if(!container) container = document.getElementById('libraryTree');
+            if(level === 0) container.innerHTML = '';
             
-            if(view === 'library') updateLibraryList();
-            if(view === 'list') renderList();
-            if(view === 'add') updateLibrarySelect();
+            const div = document.createElement('div');
+            div.style.marginLeft = (level * 16) + 'px';
+            
+            const item = document.createElement('div');
+            item.className = `flex items-center p-3 rounded-xl mb-2 ${node.id === currentLibId ? 'bg-cyan-500/20 border border-cyan-500/40' : 'bg-white/5'}`;
+            
+            const isFolder = node.type === 'folder';
+            item.innerHTML = `
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center mr-3 text-xl">
+                    ${isFolder ? '📁' : '📚'}
+                </div>
+                <div class="flex-1">
+                    <div class="font-bold ${node.id === currentLibId ? 'text-cyan-400' : 'text-white'}">${node.name}</div>
+                    <div class="text-xs text-slate-400">${isFolder ? (node.children?.length || 0) + ' 个子项' : (node.words?.length || 0) + ' 个单词'}</div>
+                </div>
+                ${isFolder ? `<button onclick="event.stopPropagation(); createInFolder('${node.id}')" class="px-3 py-1 rounded-lg bg-cyan-500/20 text-cyan-400 text-xs mr-2">+</button>` : ''}
+                ${node.id !== 'root' ? `<button onclick="event.stopPropagation(); deleteNode('${node.id}')" class="px-3 py-1 rounded-lg bg-red-500/20 text-red-400 text-xs">删</button>` : ''}
+            `;
+            
+            item.onclick = () => isFolder ? null : switchLibrary(node.id);
+            div.appendChild(item);
+            container.appendChild(div);
+            
+            if(isFolder && node.children) {
+                node.children.forEach(child => renderLibraryTree(child, container, level + 1));
+            }
         }
 
-        // 单词库管理
-        function updateLibraryList() {
-            const container = document.getElementById('libraryList');
-            container.innerHTML = '';
+        function createInFolder(parentId) {
+            const name = prompt('名称：');
+            if(!name) return;
+            const isFolder = confirm('创建为文件夹？（取消则创建单词库）');
             
-            Object.keys(libraries).forEach(id => {
-                const lib = libraries[id];
-                const isActive = id === currentLibId;
-                const div = document.createElement('div');
-                div.className = `library-card glass rounded-2xl p-4 flex justify-between items-center cursor-pointer ${isActive ? 'active' : ''}`;
-                div.onclick = () => switchLibrary(id);
-                div.innerHTML = `
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl ${isActive ? 'bg-indigo-600' : 'bg-white/10'} flex items-center justify-center text-lg">
-                            📚
-                        </div>
-                        <div>
-                            <div class="font-bold ${isActive ? 'text-indigo-400' : 'text-white'}">${lib.name}</div>
-                            <div class="text-xs text-slate-400">${lib.words.length} 个单词</div>
-                        </div>
-                    </div>
-                    <div class="flex gap-2">
-                        ${id !== 'default' ? `<button onclick="event.stopPropagation(); deleteLibrary('${id}')" class="p-2 rounded-lg bg-red-500/20 text-red-400 text-sm">删除</button>` : ''}
-                        <button onclick="event.stopPropagation(); showView('list')" class="p-2 rounded-lg bg-indigo-500/20 text-indigo-400 text-sm">查看</button>
-                    </div>
-                `;
-                container.appendChild(div);
+            const parent = findNode(parentId);
+            if(!parent.children) parent.children = [];
+            
+            parent.children.push({
+                id: 'node_' + Date.now(),
+                name: name,
+                type: isFolder ? 'folder' : 'library',
+                children: isFolder ? [] : undefined,
+                words: isFolder ? undefined : []
             });
+            
+            saveLibrary();
+            renderLibraryTree();
+        }
+
+        function findNode(id, node = libraryRoot) {
+            if(node.id === id) return node;
+            if(node.children) {
+                for(let child of node.children) {
+                    const found = findNode(id, child);
+                    if(found) return found;
+                }
+            }
+            return null;
+        }
+
+        function deleteNode(id) {
+            if(!confirm('确定删除？')) return;
+            
+            function remove(parent, id) {
+                if(!parent.children) return false;
+                const idx = parent.children.findIndex(c => c.id === id);
+                if(idx >= 0) {
+                    parent.children.splice(idx, 1);
+                    return true;
+                }
+                for(let child of parent.children) {
+                    if(remove(child, id)) return true;
+                }
+                return false;
+            }
+            
+            remove(libraryRoot, id);
+            if(currentLibId === id) {
+                currentLibId = 'default';
+                currentIdx = 0;
+            }
+            saveLibrary();
+            renderLibraryTree();
+            updateStats();
         }
 
         function switchLibrary(id) {
             currentLibId = id;
             currentIdx = 0;
-            saveLibraries();
-            updateCurrentLibDisplay();
+            saveLibrary();
+            updateCurrentPath();
             updateStats();
             showView('study');
-            if(getCurrentLib().words.length) loadWord(0);
+            const lib = findLibrary(id);
+            if(lib && lib.node.words.length) loadWord(0);
             else showEmpty();
-        }
-
-        function showCreateLibDialog() {
-            document.getElementById('createLibDialog').classList.remove('hidden');
-            document.getElementById('newLibName').value = '';
-            document.getElementById('newLibName').focus();
-        }
-
-        function closeCreateLibDialog() {
-            document.getElementById('createLibDialog').classList.add('hidden');
-        }
-
-        function createLibrary() {
-            const name = document.getElementById('newLibName').value.trim();
-            if(!name) {
-                alert('请输入库名');
-                return;
-            }
-            
-            const id = 'lib_' + Date.now();
-            libraries[id] = { name: name, words: [] };
-            saveLibraries();
-            closeCreateLibDialog();
-            updateLibraryList();
-            
-            // 自动切换到新库
-            switchLibrary(id);
-        }
-
-        function deleteLibrary(id) {
-            if(confirm('确定删除单词库 "' + libraries[id].name + '"？库内所有单词将被删除！')) {
-                delete libraries[id];
-                if(currentLibId === id) {
-                    currentLibId = 'default';
-                    currentIdx = 0;
-                }
-                saveLibraries();
-                updateLibraryList();
-                updateCurrentLibDisplay();
-                updateStats();
-            }
-        }
-
-        function updateLibrarySelect() {
-            const select = document.getElementById('selectLibrary');
-            select.innerHTML = '';
-            Object.keys(libraries).forEach(id => {
-                const option = document.createElement('option');
-                option.value = id;
-                option.textContent = libraries[id].name + ' (' + libraries[id].words.length + '词)';
-                if(id === currentLibId) option.selected = true;
-                select.appendChild(option);
-            });
         }
 
         // 学习功能
         function loadWord(idx) {
-            const lib = getCurrentLib();
-            if(lib.words.length === 0) {
+            const lib = findLibrary(currentLibId);
+            if(!lib || !lib.node.words.length) {
                 showEmpty();
                 return;
             }
             
-            currentIdx = idx % lib.words.length;
-            const word = lib.words[currentIdx];
+            currentIdx = idx % lib.node.words.length;
+            const word = lib.node.words[currentIdx];
             currentInput = [];
             
             document.getElementById('wordDisplay').textContent = word.w.split('').join(' ');
             document.getElementById('definitionDisplay').textContent = word.d;
             document.getElementById('wordIndex').textContent = currentIdx + 1;
-            document.getElementById('totalCount').textContent = lib.words.length;
+            document.getElementById('totalCount').textContent = lib.node.words.length;
             
             updateInputDisplay();
             renderSlots(word.w.length);
@@ -702,8 +1121,7 @@
         }
 
         function updateInputDisplay() {
-            const display = currentInput.join(' ') || '';
-            document.getElementById('inputDisplay').textContent = display;
+            document.getElementById('inputDisplay').textContent = currentInput.join(' ');
         }
 
         function renderSlots(count) {
@@ -711,75 +1129,63 @@
             area.innerHTML = '';
             for(let i = 0; i < count; i++) {
                 const slot = document.createElement('div');
-                slot.className = 'letter-slot w-11 h-14 rounded-xl border-2 border-white/20 flex items-center justify-center text-2xl font-bold';
+                slot.className = 'letter-slot';
                 slot.textContent = currentInput[i] || '';
                 if(currentInput[i]) slot.classList.add('filled');
                 area.appendChild(slot);
             }
         }
 
-        function typeKey(k) {
-            const lib = getCurrentLib();
-            if(lib.words.length === 0) return;
-            
-            const word = lib.words[currentIdx].w;
-            if(currentInput.length < word.length) {
-                if(isUpperCase && /[a-zA-Z]/.test(k)) {
-                    k = k.toUpperCase();
-                }
-                currentInput.push(k);
-                updateInputDisplay();
-                renderSlots(word.length);
-                if(navigator.vibrate) navigator.vibrate(12);
+        // 键盘控制
+        function onInputAreaClick() {
+            if(settings.defaultKeyboard === 'system') {
+                document.getElementById('systemInput').focus();
+            } else {
+                showKeyboard();
             }
+        }
+
+        function showKeyboard() {
+            document.getElementById('virtualKeyboard').classList.add('active');
+            document.getElementById('app').classList.add('no-scroll');
+        }
+
+        function hideKeyboard() {
+            document.getElementById('virtualKeyboard').classList.remove('active');
+            document.getElementById('app').classList.remove('no-scroll');
+            document.getElementById('systemInput').blur();
+        }
+
+        function toggleSymbolMode() {
+            isSymbolMode = !isSymbolMode;
+            document.getElementById('letterKeyboard').classList.toggle('hidden', isSymbolMode);
+            document.getElementById('symbolKeyboard').classList.toggle('hidden', !isSymbolMode);
         }
 
         function toggleShift() {
             isUpperCase = !isUpperCase;
-            const btn = document.getElementById('shiftBtn');
-            if(isUpperCase) {
-                btn.style.background = 'rgba(245, 158, 11, 0.6)';
-                btn.style.color = '#fbbf24';
-            } else {
-                btn.style.background = 'rgba(245, 158, 11, 0.25)';
-                btn.style.color = 'white';
-            }
-            const letterBtns = document.querySelectorAll('#letterKeyboard .key-btn:not(.special)');
-            letterBtns.forEach(b => {
-                const text = b.textContent;
-                if(/[a-zA-Z]/.test(text) && text.length === 1) {
-                    b.textContent = isUpperCase ? text.toUpperCase() : text.toLowerCase();
+            document.getElementById('shiftBtn').classList.toggle('active', isUpperCase);
+            
+            document.querySelectorAll('#letterKeyboard .key-btn:not(.function):not(.space):not(.wide)').forEach(btn => {
+                const text = btn.textContent;
+                if(/[a-z]/.test(text)) {
+                    btn.textContent = isUpperCase ? text.toUpperCase() : text.toLowerCase();
                 }
             });
         }
 
-        function toggleSymbolMode() {
-            currentMode = currentMode === 'symbol' ? 'letter' : 'symbol';
-            updateKeyboardDisplay();
-        }
-
-        function toggleNumberMode() {
-            currentMode = currentMode === 'number' ? 'letter' : 'number';
-            updateKeyboardDisplay();
-        }
-
-        function updateKeyboardDisplay() {
-            document.getElementById('letterKeyboard').classList.add('hidden');
-            document.getElementById('symbolKeyboard').classList.add('hidden');
-            document.getElementById('numberKeyboard').classList.add('hidden');
-            document.getElementById('spaceRow').classList.remove('hidden');
+        function typeKey(k) {
+            const lib = findLibrary(currentLibId);
+            if(!lib || !lib.node.words.length) return;
             
-            document.getElementById('symbolBtn').style.background = 'rgba(245, 158, 11, 0.2)';
-            document.getElementById('numberBtn').style.background = 'rgba(16, 185, 129, 0.2)';
-            
-            if(currentMode === 'letter') {
-                document.getElementById('letterKeyboard').classList.remove('hidden');
-            } else if(currentMode === 'symbol') {
-                document.getElementById('symbolKeyboard').classList.remove('hidden');
-                document.getElementById('symbolBtn').style.background = 'rgba(245, 158, 11, 0.6)';
-            } else if(currentMode === 'number') {
-                document.getElementById('numberKeyboard').classList.remove('hidden');
-                document.getElementById('numberBtn').style.background = 'rgba(16, 185, 129, 0.6)';
+            const word = lib.node.words[currentIdx].w;
+            if(currentInput.length < word.length) {
+                if(isUpperCase && /[a-z]/.test(k)) k = k.toUpperCase();
+                currentInput.push(k);
+                updateInputDisplay();
+                renderSlots(word.length);
+                
+                if(settings.vibrate && navigator.vibrate) navigator.vibrate(10);
             }
         }
 
@@ -787,36 +1193,16 @@
             if(currentInput.length > 0) {
                 currentInput.pop();
                 updateInputDisplay();
-                const lib = getCurrentLib();
-                if(lib.words.length > 0) {
-                    renderSlots(lib.words[currentIdx].w.length);
-                }
-                if(navigator.vibrate) navigator.vibrate(12);
-            }
-        }
-
-        function hideKeyboard() {
-            document.getElementById('keyboardContainer').classList.add('hidden');
-            document.getElementById('showKeyboardBtn').classList.remove('hidden');
-        }
-
-        function toggleKeyboard() {
-            const kb = document.getElementById('keyboardContainer');
-            const btn = document.getElementById('showKeyboardBtn');
-            if(kb.classList.contains('hidden')) {
-                kb.classList.remove('hidden');
-                btn.classList.add('hidden');
-            } else {
-                kb.classList.add('hidden');
-                btn.classList.remove('hidden');
+                const lib = findLibrary(currentLibId);
+                if(lib) renderSlots(lib.node.words[currentIdx].w.length);
             }
         }
 
         function checkWord() {
-            const lib = getCurrentLib();
-            if(lib.words.length === 0) return;
+            const lib = findLibrary(currentLibId);
+            if(!lib || !lib.node.words.length) return;
             
-            const word = lib.words[currentIdx].w;
+            const word = lib.node.words[currentIdx].w;
             const input = currentInput.join('');
             
             if(input === word) {
@@ -827,11 +1213,10 @@
         }
 
         function handleSuccess() {
-            const lib = getCurrentLib();
-            const word = lib.words[currentIdx].w;
+            const lib = findLibrary(currentLibId);
+            const word = lib.node.words[currentIdx].w;
             
             document.querySelectorAll('.letter-slot').forEach(s => s.classList.add('correct'));
-            
             mastered.add(word);
             localStorage.setItem('wm_mastered', JSON.stringify([...mastered]));
             streak++;
@@ -839,11 +1224,9 @@
             
             const fb = document.getElementById('feedback');
             fb.textContent = '✨ 正确！+' + Math.min(streak * 10, 50) + '分';
-            fb.className = 'h-6 text-sm font-medium text-emerald-400';
-            fb.style.opacity = '1';
+            fb.className = 'h-6 text-sm font-medium text-emerald-400 opacity-100';
             
-            createParticles();
-            if(navigator.vibrate) navigator.vibrate([60, 120, 60]);
+            if(settings.vibrate && navigator.vibrate) navigator.vibrate([50, 100, 50]);
             
             setTimeout(() => {
                 fb.style.opacity = '0';
@@ -852,8 +1235,8 @@
         }
 
         function handleError() {
-            const lib = getCurrentLib();
-            const word = lib.words[currentIdx].w;
+            const lib = findLibrary(currentLibId);
+            const word = lib.node.words[currentIdx].w;
             
             document.querySelectorAll('.letter-slot').forEach((s, i) => {
                 if(currentInput[i] !== word[i]) s.classList.add('wrong');
@@ -864,10 +1247,9 @@
             
             const fb = document.getElementById('feedback');
             fb.textContent = '❌ 错误，请重试';
-            fb.className = 'h-6 text-sm font-medium text-red-400';
-            fb.style.opacity = '1';
+            fb.className = 'h-6 text-sm font-medium text-red-400 opacity-100';
             
-            if(navigator.vibrate) navigator.vibrate(250);
+            if(settings.vibrate && navigator.vibrate) navigator.vibrate(200);
             
             setTimeout(() => {
                 fb.style.opacity = '0';
@@ -877,53 +1259,27 @@
             }, 1200);
         }
 
-        function createParticles() {
-            const container = document.getElementById('particles');
-            const colors = ['#6366f1', '#10b981', '#f59e0b', '#ec4899'];
-            for(let i = 0; i < 20; i++) {
-                const p = document.createElement('div');
-                p.className = 'particle w-4 h-4 rounded-full';
-                p.style.background = colors[Math.floor(Math.random() * colors.length)];
-                p.style.left = (window.innerWidth / 2 + (Math.random() - 0.5) * 250) + 'px';
-                p.style.top = (window.innerHeight / 2) + 'px';
-                p.style.animationDelay = Math.random() * 0.3 + 's';
-                container.appendChild(p);
-                setTimeout(() => p.remove(), 1000);
-            }
-        }
-
         function speak(text) {
             if('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
                 setTimeout(() => {
                     const u = new SpeechSynthesisUtterance(text);
                     u.lang = 'en-US';
-                    u.rate = 0.75;
-                    u.pitch = 1;
-                    u.volume = 1;
-                    
-                    const voices = window.speechSynthesis.getVoices();
-                    const englishVoice = voices.find(v => v.lang.includes('en-US') && v.name.includes('Google')) 
-                                      || voices.find(v => v.lang.includes('en-GB')) 
-                                      || voices.find(v => v.lang.includes('en'));
-                    if(englishVoice) {
-                        u.voice = englishVoice;
-                    }
-                    
+                    u.rate = 0.8;
                     window.speechSynthesis.speak(u);
                 }, 50);
             }
         }
 
         function speakCurrent() {
-            const lib = getCurrentLib();
-            if(lib.words.length > 0) speak(lib.words[currentIdx].w);
+            const lib = findLibrary(currentLibId);
+            if(lib && lib.node.words.length) speak(lib.node.words[currentIdx].w);
         }
 
         function showHint() {
-            const lib = getCurrentLib();
-            if(lib.words.length > 0 && currentInput.length === 0) {
-                const word = lib.words[currentIdx].w;
+            const lib = findLibrary(currentLibId);
+            if(lib && lib.node.words.length && currentInput.length === 0) {
+                const word = lib.node.words[currentIdx].w;
                 currentInput.push(word[0]);
                 updateInputDisplay();
                 renderSlots(word.length);
@@ -931,31 +1287,54 @@
         }
 
         function nextWord() {
-            const lib = getCurrentLib();
-            if(lib.words.length === 0) return;
+            const lib = findLibrary(currentLibId);
+            if(!lib || !lib.node.words.length) return;
             
             let next;
-            do { next = Math.floor(Math.random() * lib.words.length); }
-            while(next === currentIdx && lib.words.length > 1);
+            do { next = Math.floor(Math.random() * lib.node.words.length); }
+            while(next === currentIdx && lib.node.words.length > 1);
             loadWord(next);
         }
 
+        function showEmpty() {
+            document.getElementById('wordDisplay').textContent = '';
+            document.getElementById('definitionDisplay').textContent = '当前库为空，请先添加单词';
+            document.getElementById('spellingArea').innerHTML = '';
+            document.getElementById('inputDisplay').textContent = '';
+            document.getElementById('wordIndex').textContent = '0';
+            document.getElementById('totalCount').textContent = '0';
+        }
+
         // 添加单词
+        function updateLibrarySelect() {
+            const select = document.getElementById('selectLibrary');
+            select.innerHTML = '';
+            const libs = getAllLibraries();
+            libs.forEach(lib => {
+                const option = document.createElement('option');
+                option.value = lib.id;
+                option.textContent = lib.path;
+                if(lib.id === currentLibId) option.selected = true;
+                select.appendChild(option);
+            });
+        }
+
         function addWord() {
             const libId = document.getElementById('selectLibrary').value;
-            const w = document.getElementById('newWord').value.trim();
+            const w = document.getElementById('newWord').value.trim().toLowerCase();
             const d = document.getElementById('newDef').value.trim();
             
             if(w && d) {
-                libraries[libId].words.push({w, d});
-                saveLibraries();
-                document.getElementById('newWord').value = '';
-                document.getElementById('newDef').value = '';
-                updateStats();
-                updateLibrarySelect();
-                showView('study');
-                if(libId === currentLibId) {
-                    loadWord(libraries[libId].words.length - 1);
+                const lib = findLibrary(libId);
+                if(lib) {
+                    lib.node.words.push({w, d});
+                    saveLibrary();
+                    document.getElementById('newWord').value = '';
+                    document.getElementById('newDef').value = '';
+                    updateStats();
+                    updateLibrarySelect();
+                    showView('study');
+                    if(libId === currentLibId) loadWord(lib.node.words.length - 1);
                 }
             }
         }
@@ -965,88 +1344,47 @@
             const lines = document.getElementById('bulkWords').value.trim().split('\n');
             let added = 0;
             
+            const lib = findLibrary(libId);
+            if(!lib) return;
+            
             lines.forEach(line => {
                 const parts = line.trim().split(/\s+/);
                 if(parts.length >= 2) {
-                    libraries[libId].words.push({w: parts[0], d: parts.slice(1).join(' ')});
+                    lib.node.words.push({w: parts[0].toLowerCase(), d: parts.slice(1).join(' ')});
                     added++;
                 }
             });
             
             if(added > 0) {
-                saveLibraries();
+                saveLibrary();
                 document.getElementById('bulkWords').value = '';
                 updateStats();
                 updateLibrarySelect();
-                alert(`成功添加 ${added} 个单词到 ${libraries[libId].name}`);
+                alert(`添加 ${added} 个单词`);
                 showView('study');
             }
         }
 
-        function renderList() {
-            const lib = getCurrentLib();
-            const list = document.getElementById('wordList');
-            const empty = document.getElementById('emptyState');
+        // 系统键盘输入
+        document.getElementById('systemInput').addEventListener('input', (e) => {
+            const val = e.target.value;
+            const lib = findLibrary(currentLibId);
+            if(!lib || !lib.node.words.length) return;
             
-            if(lib.words.length === 0) {
-                list.innerHTML = '';
-                empty.classList.remove('hidden');
-                return;
-            }
+            const word = lib.node.words[currentIdx].w;
+            currentInput = val.split('').slice(0, word.length);
+            updateInputDisplay();
+            renderSlots(word.length);
             
-            empty.classList.add('hidden');
-            list.innerHTML = lib.words.map((item, i) => `
-                <div class="word-item flex justify-between items-center p-3 rounded-xl bg-white/5">
-                    <div>
-                        <div class="font-bold ${mastered.has(item.w) ? 'text-emerald-400' : 'text-white'}">
-                            ${item.w} ${mastered.has(item.w) ? '✓' : ''}
-                        </div>
-                        <div class="text-xs text-slate-400">${item.d}</div>
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="loadWord(${i}); showView('study')" class="px-3 py-1 rounded bg-indigo-500/20 text-indigo-400 text-xs">练习</button>
-                        <button onclick="deleteWord(${i})" class="px-3 py-1 rounded bg-red-500/20 text-red-400 text-xs">删除</button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function deleteWord(i) {
-            const lib = getCurrentLib();
-            if(confirm('删除单词 "' + lib.words[i].w + '"？')) {
-                mastered.delete(lib.words[i].w);
-                lib.words.splice(i, 1);
-                saveLibraries();
-                renderList();
-                updateStats();
-                updateLibrarySelect();
+            if(currentInput.length >= word.length) {
+                setTimeout(checkWord, 200);
             }
-        }
+        });
 
-        function clearAll() {
-            const lib = getCurrentLib();
-            if(confirm('清空 ' + lib.name + ' 的所有单词？')) {
-                lib.words = [];
-                saveLibraries();
-                renderList();
-                updateStats();
-                updateLibrarySelect();
-                showEmpty();
-            }
-        }
-
-        function showEmpty() {
-            document.getElementById('wordDisplay').textContent = '';
-            document.getElementById('definitionDisplay').textContent = '当前单词库为空，请先添加单词';
-            document.getElementById('spellingArea').innerHTML = '';
-            document.getElementById('inputDisplay').textContent = '';
-            document.getElementById('wordIndex').textContent = '0';
-            document.getElementById('totalCount').textContent = '0';
-        }
-
-        if('speechSynthesis' in window) {
-            window.speechSynthesis.getVoices();
-        }
+        // 防止键盘冲突
+        document.getElementById('virtualKeyboard').addEventListener('touchstart', (e) => {
+            e.stopPropagation();
+        }, {passive: true});
 
         init();
     </script>
