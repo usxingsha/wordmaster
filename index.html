@@ -8,211 +8,840 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src='https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js'></script>
     <style>
-        * { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; user-select: none; box-sizing: border-box; }
-        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; position: fixed; background: linear-gradient(180deg, #0a1628 0%, #1a3a5c 50%, #0d2137 100%); color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        * { 
+            -webkit-tap-highlight-color: transparent; 
+            box-sizing: border-box; 
+            touch-action: manipulation; /* 优化触摸响应 */
+        }
+        html, body { 
+            margin: 0; 
+            padding: 0; 
+            width: 100%; 
+            height: 100%; 
+            overflow: hidden; 
+            position: fixed; 
+            background: linear-gradient(180deg, #0a1628 0%, #1a3a5c 50%, #0d2137 100%); 
+            color: white; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+        }
         
-        #app { width: 100%; height: 100%; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; position: relative; padding-bottom: 100px; }
+        #app { 
+            width: 100%; 
+            height: 100%; 
+            overflow-y: auto; 
+            overflow-x: hidden; 
+            -webkit-overflow-scrolling: touch; 
+            position: relative; 
+            padding-bottom: 120px; 
+            overscroll-behavior-y: contain; 
+        }
         
-        .glass { background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.15); }
-        .view { display: none; padding: 16px; padding-bottom: 120px; animation: fadeOut 0.2s; }
-        .view.active { display: block; animation: fadeIn 0.3s; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+        /* 键盘弹出时的适配 */
+        .keyboard-open #app {
+            padding-bottom: 20px;
+        }
+        .keyboard-open .bottom-nav {
+            transform: translateY(100%);
+            transition: transform 0.3s;
+        }
         
-        .lib-manager { background: rgba(0,0,0,0.2); border-radius: 20px; padding: 16px; }
-        .lib-tabs { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
-        .lib-tabs::-webkit-scrollbar { display: none; }
-        .lib-tab { padding: 8px 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; color: rgba(255,255,255,0.7); font-size: 13px; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
-        .lib-tab.active { background: rgba(0,200,255,0.2); border-color: rgba(0,200,255,0.5); color: #00ffff; }
+        .glass { 
+            background: rgba(255, 255, 255, 0.08); 
+            backdrop-filter: blur(20px); 
+            -webkit-backdrop-filter: blur(20px); 
+            border: 1px solid rgba(255, 255, 255, 0.15); 
+        }
+        .view { 
+            display: none; 
+            padding: 16px; 
+            padding-bottom: 140px; 
+            opacity: 0; 
+            transform: translateY(10px); 
+            transition: all 0.3s ease-out; 
+            pointer-events: none; 
+        }
+        .view.active { 
+            display: block; 
+            opacity: 1; 
+            transform: translateY(0); 
+            pointer-events: auto; 
+        }
         
-        .word-list { max-height: 50vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-        .word-item { display: flex; align-items: center; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 8px; transition: all 0.2s; position: relative; overflow: hidden; touch-action: pan-y; }
-        .word-item:active { background: rgba(255,255,255,0.1); transform: scale(0.98); }
-        .word-info { flex: 1; min-width: 0; margin-right: 8px; }
-        .word-title { font-weight: bold; color: #00ffff; font-size: 16px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; }
-        .word-def { color: rgba(255,255,255,0.6); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .word-actions { display: flex; gap: 6px; }
-        .word-btn { padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; border: none; background: rgba(255,255,255,0.1); color: white; transition: all 0.2s; }
-        .word-btn:active { transform: scale(0.95); }
-        .word-btn.delete { background: rgba(255,50,50,0.2); color: #ff6464; }
-        .word-btn.edit { background: rgba(0,200,255,0.2); color: #00ffff; }
+        /* 打字练习样式 - 优化点击区域 */
+        .typing-container {
+            position: relative;
+            background: rgba(0,0,0,0.3); 
+            border-radius: 20px; 
+            padding: 24px 16px; 
+            margin: 16px 0;
+            border: 2px solid rgba(0,200,255,0.3);
+            cursor: text; /* 提示可输入 */
+            transition: all 0.2s;
+            user-select: text; /* 允许选择 */
+            -webkit-user-select: text;
+        }
+        .typing-container:active {
+            border-color: rgba(0,200,255,0.6);
+            background: rgba(0,0,0,0.4);
+        }
+        .typing-container.focused {
+            border-color: #00a8ff;
+            box-shadow: 0 0 0 3px rgba(0,168,255,0.2), inset 0 0 20px rgba(0,168,255,0.1);
+        }
         
-        .form-input { width: 100%; padding: 12px 16px; background: rgba(0,0,0,0.3); border: 1px solid rgba(0,200,255,0.3); border-radius: 12px; color: white; font-size: 16px; -webkit-appearance: none; margin-bottom: 12px; }
-        .form-input:focus { outline: none; border-color: rgba(0,200,255,0.8); }
-        .btn-primary { width: 100%; padding: 14px; background: linear-gradient(135deg, #00a8ff, #0066ff); border: none; border-radius: 12px; color: white; font-weight: bold; cursor: pointer; font-size: 16px; transition: all 0.2s; margin-bottom: 10px; }
-        .btn-primary:active { transform: scale(0.98); opacity: 0.9; }
-        .btn-secondary { width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 12px; color: white; cursor: pointer; font-size: 14px; transition: all 0.2s; }
-        .btn-secondary:active { background: rgba(255,255,255,0.2); }
-        .btn-row { display: flex; gap: 10px; }
-        .btn-row .btn-primary, .btn-row .btn-secondary { flex: 1; margin-bottom: 0; }
+        /* 可见的输入框替代方案（解决iOS隐藏input不聚焦问题） */
+        .typing-input-visible {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.001; /* 几乎透明但可交互 */
+            z-index: 10;
+            cursor: text;
+            font-size: 16px; /* iOS缩放防止 */
+            color: transparent;
+            background: transparent;
+            border: none;
+            outline: none;
+            padding: 0;
+            margin: 0;
+        }
         
-        .lib-tree-item { display: flex; align-items: center; padding: 12px; margin-bottom: 6px; border-radius: 12px; cursor: pointer; transition: all 0.2s; background: rgba(255,255,255,0.03); }
-        .lib-tree-item:hover { background: rgba(255,255,255,0.08); }
-        .lib-tree-item.active { background: rgba(0,200,255,0.15); border: 1px solid rgba(0,200,255,0.4); }
-        .lib-icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; margin-right: 12px; font-size: 20px; background: rgba(255,255,255,0.05); border-radius: 10px; }
-        .lib-name { flex: 1; font-weight: 500; font-size: 15px; }
-        .lib-count { font-size: 12px; color: rgba(255,255,255,0.5); background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 10px; }
+        .word-display { 
+            display: flex; 
+            justify-content: center; 
+            gap: 6px; 
+            margin-bottom: 16px; 
+            flex-wrap: wrap;
+            pointer-events: none; /* 让点击穿透到下方input */
+            position: relative;
+            z-index: 5;
+        }
+        .letter-box { 
+            width: 40px; 
+            height: 50px; 
+            border-radius: 10px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 22px; 
+            font-weight: bold; 
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.2);
+            transition: all 0.15s;
+            position: relative;
+            pointer-events: none;
+            user-select: none;
+        }
+        .letter-box.correct { 
+            background: rgba(0,255,136,0.25); 
+            border-color: #00ff88; 
+            color: #00ff88;
+            transform: scale(1.05);
+            box-shadow: 0 0 10px rgba(0,255,136,0.3);
+        }
+        .letter-box.wrong { 
+            background: rgba(255,50,50,0.25); 
+            border-color: #ff6464; 
+            color: #ff6464;
+            animation: shake 0.4s;
+        }
+        .letter-box.pending { 
+            border-color: rgba(0,200,255,0.8);
+            background: rgba(0,200,255,0.1);
+        }
+        .letter-box.cursor {
+            box-shadow: 0 0 0 2px #00ffff, 0 0 15px rgba(0,255,255,0.4);
+        }
+        .letter-box.cursor::after {
+            content: '';
+            position: absolute;
+            bottom: 6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 16px;
+            height: 3px;
+            background: #00ffff;
+            border-radius: 2px;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+        @keyframes shake { 
+            0%, 100% { transform: translateX(0); } 
+            25% { transform: translateX(-4px); } 
+            75% { transform: translateX(4px); } 
+        }
         
-        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(10, 20, 35, 0.95); backdrop-filter: blur(20px); border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-around; padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); z-index: 100; }
-        .nav-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px; color: rgba(255,255,255,0.5); font-size: 12px; background: none; border: none; cursor: pointer; transition: all 0.2s; }
-        .nav-btn.active { color: #00ffff; transform: scale(1.1); }
+        .typing-hint { 
+            text-align: center; 
+            color: rgba(255,255,255,0.5); 
+            font-size: 13px; 
+            margin-top: 12px;
+            pointer-events: none;
+            position: relative;
+            z-index: 5;
+        }
+        .typing-hint.active {
+            color: #00ffff;
+            font-weight: 500;
+        }
         
-        .toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%) translateY(-100px); padding: 12px 24px; border-radius: 24px; font-size: 14px; z-index: 3000; transition: all 0.3s; backdrop-filter: blur(10px); opacity: 0; pointer-events: none; max-width: 90%; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
-        .toast.success { background: rgba(0,255,136,0.95); color: #000; font-weight: 600; }
-        .toast.error { background: rgba(255,50,50,0.95); color: white; }
-        .toast.info { background: rgba(0,150,255,0.95); color: white; }
+        .typing-stats { 
+            display: flex; 
+            justify-content: center; 
+            gap: 16px; 
+            margin-top: 16px; 
+            font-size: 11px;
+            color: rgba(255,255,255,0.6);
+            pointer-events: none;
+            position: relative;
+            z-index: 5;
+        }
+        .stat-item { 
+            display: flex; 
+            align-items: center; 
+            gap: 4px;
+            background: rgba(0,0,0,0.3);
+            padding: 4px 8px;
+            border-radius: 12px;
+        }
         
-        .empty-state { text-align: center; padding: 40px 20px; color: rgba(255,255,255,0.4); }
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); z-index: 200; display: none; opacity: 0; transition: opacity 0.3s; }
-        .modal-overlay.active { display: flex; opacity: 1; align-items: center; justify-content: center; padding: 20px; }
-        .modal-content { background: linear-gradient(135deg, rgba(20,40,70,0.98), rgba(10,20,40,0.99)); border: 1px solid rgba(0,200,255,0.3); border-radius: 24px; width: 100%; max-width: 400px; max-height: 80vh; overflow-y: auto; padding: 24px; position: relative; }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .modal-close { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.1); border: none; color: white; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        /* 输入框样式统一优化 */
+        .form-input { 
+            width: 100%; 
+            padding: 14px 16px; 
+            background: rgba(0,0,0,0.3); 
+            border: 2px solid rgba(0,200,255,0.2); 
+            border-radius: 12px; 
+            color: white; 
+            font-size: 16px; /* 防止iOS缩放 */
+            line-height: 1.5;
+            -webkit-appearance: none;
+            transition: all 0.2s;
+            outline: none;
+        }
+        .form-input:focus { 
+            border-color: #00a8ff; 
+            background: rgba(0,0,0,0.4);
+            box-shadow: 0 0 0 3px rgba(0,168,255,0.15);
+        }
+        .form-input::placeholder {
+            color: rgba(255,255,255,0.4);
+        }
         
-        .search-box { width: 100%; padding: 12px 16px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; color: white; font-size: 15px; margin-bottom: 12px; -webkit-appearance: none; }
-        .search-box:focus { outline: none; border-color: rgba(0,200,255,0.5); }
+        /* 图片上传按钮 */
+        .input-with-camera { 
+            position: relative; 
+            display: flex; 
+            gap: 8px; 
+            align-items: stretch; 
+        }
+        .camera-btn { 
+            padding: 0 16px; 
+            background: linear-gradient(135deg, #00a8ff, #0066ff); 
+            border: none; 
+            border-radius: 12px; 
+            color: white; 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            font-size: 20px;
+            transition: all 0.2s;
+            white-space: nowrap;
+            min-height: 50px;
+        }
+        .camera-btn:active { 
+            transform: scale(0.95); 
+        }
         
-        .study-card { background: rgba(0,0,0,0.2); border-radius: 24px; padding: 30px 20px; text-align: center; margin-bottom: 20px; border: 1px solid rgba(0,200,255,0.1); }
-        .study-word { font-size: 36px; font-weight: bold; margin-bottom: 12px; letter-spacing: 2px; color: #fff; text-shadow: 0 0 20px rgba(0,200,255,0.5); min-height: 48px; }
-        .study-def { font-size: 18px; color: rgba(255,255,255,0.7); margin-bottom: 24px; min-height: 27px; }
-        .study-progress { display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; font-size: 14px; color: rgba(255,255,255,0.5); }
+        .inline-camera-btn {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0,200,255,0.2);
+            border: 1px solid rgba(0,200,255,0.4);
+            border-radius: 10px;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 20px;
+            transition: all 0.2s;
+            z-index: 10;
+        }
+        .inline-camera-btn:hover { 
+            background: rgba(0,200,255,0.3); 
+            transform: translateY(-50%) scale(1.05);
+        }
+        .inline-camera-btn:active { 
+            transform: translateY(-50%) scale(0.95); 
+        }
         
-        .action-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 20px; }
-        .action-btn { padding: 16px; border-radius: 16px; border: none; color: white; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 14px; }
-        .action-btn:active { transform: scale(0.95); }
-        .action-btn.primary { background: linear-gradient(135deg, #00a8ff, #0066ff); }
-        .action-btn.success { background: linear-gradient(135deg, #00d26a, #00a854); }
-        .action-btn.warning { background: linear-gradient(135deg, #ffa500, #ff7b00); }
-        .action-btn.danger { background: linear-gradient(135deg, #ff4757, #cc2936); }
-        .action-btn.secondary { background: rgba(255,255,255,0.1); }
+        /* OCR弹窗 */
+        .ocr-modal { 
+            position: fixed; 
+            inset: 0; 
+            background: rgba(0,0,0,0.95); 
+            backdrop-filter: blur(10px); 
+            z-index: 3000; 
+            display: none; 
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .ocr-modal.active { 
+            display: flex; 
+            animation: fadeIn 0.3s; 
+        }
         
-        .spelling-slot { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 50px; background: rgba(0,0,0,0.3); border: 2px solid rgba(0,200,255,0.3); border-radius: 10px; margin: 0 4px; font-size: 20px; font-weight: bold; transition: all 0.2s; }
-        .spelling-slot.filled { border-color: rgba(0,200,255,0.8); color: #00ffff; background: rgba(0,200,255,0.1); }
-        .spelling-slot.correct { border-color: #00ff88; color: #00ff88; background: rgba(0,255,136,0.1); }
-        .spelling-slot.wrong { border-color: #ff4757; color: #ff4757; animation: shake 0.4s; }
+        /* 图片选择浮层 */
+        .image-picker { 
+            position: fixed; 
+            bottom: 0; 
+            left: 0; 
+            right: 0; 
+            background: linear-gradient(to top, #0a1628, #1a3a5c); 
+            border-radius: 24px 24px 0 0; 
+            padding: 24px; 
+            z-index: 2500; 
+            transform: translateY(100%); 
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .image-picker.active { 
+            transform: translateY(0); 
+        }
+        .picker-backdrop { 
+            position: fixed; 
+            inset: 0; 
+            background: rgba(0,0,0,0.7); 
+            z-index: 2499; 
+            display: none; 
+            opacity: 0; 
+            transition: opacity 0.3s;
+        }
+        .picker-backdrop.active { 
+            display: block; 
+            opacity: 1; 
+        }
         
-        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+        /* 底部导航 - 键盘适配 */
+        .bottom-nav { 
+            position: fixed; 
+            bottom: 0; 
+            left: 0; 
+            right: 0; 
+            background: rgba(10, 20, 35, 0.98); 
+            backdrop-filter: blur(20px); 
+            border-top: 1px solid rgba(255,255,255,0.1); 
+            display: flex; 
+            justify-content: space-around; 
+            padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); 
+            z-index: 100; 
+            transition: transform 0.3s;
+        }
         
-        .loading { display: inline-block; width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.1); border-top-color: #00ffff; border-radius: 50%; animation: spin 1s linear infinite; margin-left: 8px; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        /* 练习卡片 */
+        .practice-card { 
+            background: linear-gradient(145deg, rgba(0,200,255,0.1), rgba(0,100,255,0.1)); 
+            border-radius: 24px; 
+            padding: 20px; 
+            margin-bottom: 20px;
+            border: 1px solid rgba(0,200,255,0.3);
+        }
         
-        .image-upload-area { border: 2px dashed rgba(0,200,255,0.4); border-radius: 20px; padding: 40px 20px; text-align: center; cursor: pointer; transition: all 0.3s; background: rgba(0,0,0,0.2); }
-        .image-upload-area:active { background: rgba(0,200,255,0.1); border-color: #00ffff; transform: scale(0.98); }
+        /* 其他原有样式 */
+        .lib-manager { 
+            background: rgba(0,0,0,0.2); 
+            border-radius: 20px; 
+            padding: 16px; 
+        }
+        .lib-tabs { 
+            display: flex; 
+            gap: 8px; 
+            margin-bottom: 16px; 
+            overflow-x: auto; 
+            scrollbar-width: none; 
+        }
+        .lib-tabs::-webkit-scrollbar { 
+            display: none; 
+        }
+        .lib-tab { 
+            padding: 8px 16px; 
+            background: rgba(255,255,255,0.05); 
+            border: 1px solid rgba(255,255,255,0.1); 
+            border-radius: 20px; 
+            color: rgba(255,255,255,0.7); 
+            font-size: 13px; 
+            cursor: pointer; 
+            white-space: nowrap; 
+            transition: all 0.2s; 
+            flex-shrink: 0; 
+            outline: none;
+        }
+        .lib-tab:focus {
+            border-color: #00a8ff;
+            color: #00ffff;
+        }
+        .lib-tab.active { 
+            background: rgba(0,200,255,0.2); 
+            border-color: rgba(0,200,255,0.5); 
+            color: #00ffff; 
+        }
         
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 8px; font-weight: 600; }
-        .badge.blue { background: rgba(0,200,255,0.2); color: #00ffff; }
+        .word-list { 
+            max-height: 50vh; 
+            overflow-y: auto; 
+            -webkit-overflow-scrolling: touch; 
+        }
         
-        .confirm-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); background: rgba(20,30,50,0.98); border: 1px solid rgba(0,200,255,0.3); border-radius: 20px; padding: 24px; z-index: 3000; opacity: 0; pointer-events: none; transition: all 0.3s; min-width: 280px; max-width: 90%; }
-        .confirm-dialog.active { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
-        .confirm-title { font-size: 18px; font-weight: bold; margin-bottom: 12px; color: #fff; }
-        .confirm-text { color: rgba(255,255,255,0.7); margin-bottom: 20px; font-size: 14px; line-height: 1.5; }
-        .confirm-btns { display: flex; gap: 10px; }
-        .confirm-btn { flex: 1; padding: 12px; border-radius: 10px; border: none; cursor: pointer; font-weight: 500; }
-        .confirm-btn.cancel { background: rgba(255,255,255,0.1); color: white; }
-        .confirm-btn.ok { background: linear-gradient(135deg, #ff4757, #cc2936); color: white; }
-        .confirm-btn.ok.safe { background: linear-gradient(135deg, #00a8ff, #0066ff); }
+        .btn-primary { 
+            padding: 14px 24px; 
+            background: linear-gradient(135deg, #00a8ff, #0066ff); 
+            border: none; 
+            border-radius: 12px; 
+            color: white; 
+            font-weight: bold; 
+            cursor: pointer; 
+            transition: all 0.2s; 
+            font-size: 16px;
+            min-height: 50px;
+            outline: none;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-primary:focus {
+            box-shadow: 0 0 0 3px rgba(0,168,255,0.3);
+        }
+        .btn-primary:active:not(:disabled) { 
+            transform: scale(0.98); 
+        }
+        .btn-primary:disabled { 
+            opacity: 0.6; 
+            cursor: not-allowed; 
+        }
+        
+        .nav-btn { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            gap: 4px; 
+            padding: 8px 16px; 
+            color: rgba(255,255,255,0.5); 
+            font-size: 12px; 
+            background: none; 
+            border: none; 
+            cursor: pointer; 
+            transition: all 0.2s; 
+            outline: none;
+            border-radius: 12px;
+        }
+        .nav-btn:focus {
+            color: #00ffff;
+            background: rgba(0,200,255,0.1);
+        }
+        .nav-btn.active { 
+            color: #00ffff; 
+        }
+        
+        .toast { 
+            position: fixed; 
+            top: 20px; 
+            left: 50%; 
+            transform: translateX(-50%) translateY(-100px); 
+            padding: 12px 24px; 
+            border-radius: 24px; 
+            font-size: 14px; 
+            z-index: 4000; 
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55); 
+            backdrop-filter: blur(10px); 
+            opacity: 0; 
+            pointer-events: none; 
+            max-width: 80%; 
+            text-align: center; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .toast.show { 
+            transform: translateX(-50%) translateY(0); 
+            opacity: 1; 
+        }
+        .toast.success { 
+            background: rgba(0,255,136,0.95); 
+            color: #000; 
+        }
+        .toast.error { 
+            background: rgba(255,50,50,0.95); 
+            color: white; 
+        }
+        
+        /* 测试面板 */
+        .test-toggle { 
+            position: fixed; 
+            top: 80px; 
+            right: 20px; 
+            z-index: 1000; 
+            padding: 8px 16px; 
+            background: rgba(0,255,0,0.2); 
+            border: 1px solid #0f0; 
+            color: #0f0; 
+            border-radius: 20px; 
+            cursor: pointer; 
+            font-size: 12px; 
+            font-weight: bold;
+            outline: none;
+        }
+        .test-toggle:active {
+            transform: scale(0.95);
+        }
+        
+        /* 键盘测试反馈 */
+        .input-test-result {
+            margin-top: 8px;
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 12px;
+            display: none;
+        }
+        .input-test-result.show {
+            display: block;
+        }
+        .input-test-result.success {
+            background: rgba(0,255,136,0.2);
+            color: #00ff88;
+            border: 1px solid rgba(0,255,136,0.3);
+        }
     </style>
-<base target="_blank">
 </head>
 <body>
-    <div id="toast" class="toast"></div>
-    
-    <!-- 确认对话框 -->
-    <div id="confirmDialog" class="confirm-dialog">
-        <div class="confirm-title" id="confirmTitle">确认操作</div>
-        <div class="confirm-text" id="confirmText">确定要执行此操作吗？</div>
-        <div class="confirm-btns">
-            <button class="confirm-btn cancel" onclick="closeConfirm()">取消</button>
-            <button class="confirm-btn ok" id="confirmOkBtn" onclick="executeConfirm()">确定</button>
+    <!-- 图片选择浮层 -->
+    <div class="picker-backdrop" id="pickerBackdrop" onclick="hideImagePicker()"></div>
+    <div class="image-picker" id="imagePicker">
+        <div style="width: 40px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; margin: 0 auto 20px;"></div>
+        <h3 style="margin: 0 0 16px 0; font-size: 16px; text-align: center;">选择图片</h3>
+        <div class="picker-option" onclick="triggerCamera('camera')" style="display: flex; align-items: center; gap: 16px; padding: 16px; border-radius: 12px; margin-bottom: 8px; background: rgba(255,255,255,0.05); cursor: pointer; transition: all 0.2s;">
+            <div style="font-size: 24px; width: 40px; text-align: center;">📷</div>
+            <div>
+                <div style="font-weight: 500; margin-bottom: 2px;">拍照</div>
+                <div style="font-size: 12px; color: rgba(255,255,255,0.5);">使用相机拍摄文字</div>
+            </div>
+        </div>
+        <div class="picker-option" onclick="triggerCamera('album')" style="display: flex; align-items: center; gap: 16px; padding: 16px; border-radius: 12px; margin-bottom: 8px; background: rgba(255,255,255,0.05); cursor: pointer; transition: all 0.2s;">
+            <div style="font-size: 24px; width: 40px; text-align: center;">🖼️</div>
+            <div>
+                <div style="font-weight: 500; margin-bottom: 2px;">从相册选择</div>
+                <div style="font-size: 12px; color: rgba(255,255,255,0.5);">选择已有图片</div>
+            </div>
+        </div>
+        <button onclick="hideImagePicker()" style="width: 100%; padding: 14px; margin-top: 8px; background: rgba(255,255,255,0.1); border: none; border-radius: 12px; color: white; font-size: 15px; cursor: pointer;">取消</button>
+    </div>
+
+    <!-- OCR全屏处理弹窗 -->
+    <div class="ocr-modal" id="ocrModal" onclick="if(event.target===this)closeOCRModal()">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0;">
+            <h3 style="margin: 0;">📷 图片识别</h3>
+            <button onclick="closeOCRModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 8px;">&times;</button>
+        </div>
+        
+        <div style="flex: 1; display: flex; align-items: center; justify-content: center; margin: 20px 0; border-radius: 16px; overflow: hidden; background: rgba(0,0,0,0.5); border: 2px dashed rgba(0,200,255,0.3);" id="ocrPreview">
+            <div style="text-align: center; color: rgba(255,255,255,0.5); padding: 40px;">
+                <div style="font-size: 48px; margin-bottom: 12px;">🖼️</div>
+                <p>正在加载...</p>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 13px; color: rgba(255,255,255,0.6);" id="ocrStatus">准备识别...</span>
+            <div style="display: flex; gap: 8px;">
+                <button onclick="retryOCR()" id="retryBtn" style="display: none; padding: 8px 14px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-size: 12px; cursor: pointer;">重试</button>
+                <button onclick="confirmOCR()" id="confirmOCRBtn" style="display: none; padding: 8px 16px; background: linear-gradient(135deg, #00a8ff, #0066ff); border: none; border-radius: 8px; color: white; font-size: 12px; cursor: pointer; font-weight: bold;">使用结果</button>
+            </div>
+        </div>
+        
+        <div style="background: rgba(30,40,60,0.9); border-radius: 16px; padding: 16px; max-height: 40vh; overflow-y: auto; display: none;" id="ocrResultPanel">
+            <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 8px;">识别到的文字（点击填入）：</div>
+            <div id="ocrWordsList" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+            <div id="ocrFullText" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 13px; color: rgba(255,255,255,0.7); font-family: monospace; max-height: 100px; overflow-y: auto; line-height: 1.6;"></div>
         </div>
     </div>
 
+    <input type="file" id="hiddenFileInput" class="hidden" accept="image/*" onchange="handleImageSelected(this)">
+
+    <div id="toast" class="toast"></div>
+    
+    <!-- 测试按钮 -->
+    <button class="test-toggle" onclick="toggleTestPanel()" id="testBtn">🧪 测试</button>
+    <div id="testPanel" style="position: fixed; top: 120px; right: 20px; background: rgba(0,0,0,0.95); border: 1px solid #0f0; border-radius: 12px; padding: 16px; z-index: 999; width: 280px; display: none; max-height: 60vh; overflow-y: auto;">
+        <h3 style="margin: 0 0 12px 0; color: #0f0; font-size: 14px;">输入测试面板</h3>
+        <button onclick="testTypingInput()" style="width: 100%; margin: 4px 0; padding: 8px; background: rgba(0,255,0,0.1); border: 1px solid #0f0; color: #0f0; border-radius: 6px; cursor: pointer; font-size: 12px; text-align: left;">⌨️ 测试打字输入</button>
+        <button onclick="testAllInputs()" style="width: 100%; margin: 4px 0; padding: 8px; background: rgba(0,255,0,0.1); border: 1px solid #0f0; color: #0f0; border-radius: 6px; cursor: pointer; font-size: 12px; text-align: left;">📝 测试所有输入框</button>
+        <button onclick="testKeyboardToggle()" style="width: 100%; margin: 4px 0; padding: 8px; background: rgba(0,255,0,0.1); border: 1px solid #0f0; color: #0f0; border-radius: 6px; cursor: pointer; font-size: 12px; text-align: left;">📱 键盘唤起测试</button>
+        <button onclick="clearTestLog()" style="width: 100%; margin: 4px 0; padding: 8px; color: #f00; border: 1px solid #f00; background: rgba(255,0,0,0.1); border-radius: 6px; cursor: pointer; font-size: 12px;">清除日志</button>
+        <div id="testLog" style="margin-top: 10px; padding: 8px; background: rgba(0,0,0,0.5); border-radius: 6px; font-size: 11px; font-family: monospace; max-height: 150px; overflow-y: auto; color: #0f0; line-height: 1.4;"></div>
+        <div style="margin-top: 8px; font-size: 10px; color: #666;">点击外部关闭</div>
+    </div>
+
     <div id="app">
-        <!-- 学习视图 -->
+        <!-- 学习视图（含打字练习） -->
         <div id="studyView" class="view active">
-            <div class="study-card">
-                <div class="study-progress">
-                    <span id="wordIndex">0</span> / <span id="totalCount">0</span>
-                    <span class="badge blue" id="currentLibBadge">默认词库</span>
+            <!-- 原有学习卡片 -->
+            <div class="glass rounded-3xl p-5 mb-4">
+                <div class="flex justify-center mb-4">
+                    <span class="px-4 py-1.5 rounded-full bg-black/30 text-sm text-cyan-300 border border-cyan-500/30">
+                        <span id="wordIndex">1</span> / <span id="totalCount">0</span>
+                    </span>
                 </div>
-                <div class="study-word" id="studyWord">Ready?</div>
-                <div class="study-def" id="studyDef">点击开始学习</div>
                 
-                <div id="spellingArea" style="min-height: 60px; margin: 20px 0; display: flex; justify-content: center; flex-wrap: wrap;"></div>
+                <div class="text-center space-y-4 mb-6">
+                    <div id="wordDisplay" class="text-3xl font-bold tracking-wider min-h-[40px]"></div>
+                    <div id="definitionDisplay" class="text-lg text-cyan-200/70 min-h-[28px]"></div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <button onclick="speakCurrent()" class="px-4 py-3 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-400/30 active:scale-95 transition-transform flex items-center justify-center gap-2">
+                        <span>🔊</span> 朗读
+                    </button>
+                    <button onclick="showHint()" class="px-4 py-3 rounded-xl bg-white/5 border border-white/20 active:scale-95 transition-transform flex items-center justify-center gap-2">
+                        <span>💡</span> 提示
+                    </button>
+                </div>
                 
-                <div id="feedback" style="height: 24px; font-weight: 600; font-size: 14px; opacity: 0; transition: all 0.3s;"></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="checkWord()" class="px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-bold active:scale-95 transition-transform flex items-center justify-center gap-2">
+                        <span>✓</span> 已掌握
+                    </button>
+                    <button onclick="nextWord()" class="px-4 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 font-bold active:scale-95 transition-transform flex items-center justify-center gap-2">
+                        <span>→</span> 下一个
+                    </button>
+                </div>
+                
+                <div id="feedback" class="h-8 text-center text-sm font-medium opacity-0 transition-opacity mt-4 flex items-center justify-center"></div>
             </div>
-            
-            <div class="action-grid">
-                <button class="action-btn secondary" onclick="speakCurrent()">🔊 朗读</button>
-                <button class="action-btn warning" onclick="showHint()">💡 提示</button>
-                <button class="action-btn success" onclick="checkAnswer()">✓ 确认</button>
-                <button class="action-btn primary" onclick="nextWord()">→ 下一个</button>
-            </div>
-            
-            <div style="text-align: center; margin-top: 20px; color: rgba(255,255,255,0.4); font-size: 13px;">
-                提示：可在词库管理中切换学习词库
+
+            <!-- 打字练习区域 - 优化点击输入 -->
+            <div class="practice-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0; font-size: 16px; display: flex; align-items: center; gap: 6px;">
+                        <span>⌨️</span> 拼写练习
+                    </h3>
+                    <div style="width: 50px; height: 50px; position: relative;">
+                        <svg width="50" height="50" viewBox="0 0 60 60" style="transform: rotate(-90deg);">
+                            <circle cx="30" cy="30" r="26" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="4"/>
+                            <circle id="accuracyCircle" cx="30" cy="30" r="26" fill="none" stroke="url(#gradient)" stroke-width="4" 
+                                stroke-dasharray="163.36" stroke-dashoffset="163.36" stroke-linecap="round" style="transition: stroke-dashoffset 0.3s;"/>
+                        </svg>
+                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 12px; font-weight: bold;" id="accuracyText">0%</div>
+                    </div>
+                </div>
+
+                <div id="practiceWord" style="font-size: 28px; font-weight: bold; text-align: center; margin-bottom: 8px; letter-spacing: 2px;">hello</div>
+                <div id="practiceMeaning" style="text-align: center; color: rgba(255,255,255,0.6); font-size: 16px; margin-bottom: 20px;">你好</div>
+
+                <!-- 可点击的输入区域 -->
+                <div class="typing-container" id="typingContainer" onclick="focusTypingInput()" onfocus="onTypingFocus()" tabindex="0">
+                    <input type="text" 
+                           id="typingInput" 
+                           class="typing-input-visible" 
+                           autocomplete="off" 
+                           autocorrect="off" 
+                           autocapitalize="off" 
+                           spellcheck="false"
+                           inputmode="text"
+                           enterkeyhint="next"
+                           oninput="handleTyping(event)" 
+                           onkeydown="handleTypingKey(event)"
+                           onfocus="onTypingFocus()"
+                           onblur="onTypingBlur()">
+                    
+                    <div class="word-display" id="letterBoxes"></div>
+                    <div class="typing-hint" id="typingHint">👆 点击此处输入单词字母</div>
+                    <div class="typing-stats">
+                        <div class="stat-item">
+                            <span>⚡</span>
+                            <span id="speedStat">0 字/分</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>🎯</span>
+                            <span id="accuracyStat">准确率: 0%</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>⏱️</span>
+                            <span id="timeStat">0s</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-top: 16px;">
+                    <button onclick="resetTyping()" class="flex-1 py-3 rounded-xl bg-white/10 border border-white/20 text-sm active:scale-95 transition-transform hover:bg-white/20">
+                        🔄 重置
+                    </button>
+                    <button onclick="showImagePicker('typing')" class="flex-1 py-3 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-sm active:scale-95 transition-transform hover:bg-cyan-500/30 flex items-center justify-center gap-1">
+                        <span>📷</span> 拍图识字
+                    </button>
+                </div>
+                
+                <!-- 测试结果反馈 -->
+                <div id="typingTestResult" class="input-test-result"></div>
             </div>
         </div>
 
         <!-- 词库管理视图 -->
         <div id="libraryView" class="view">
             <div class="lib-manager">
-                <!-- 当前词库信息 -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 12px;">
                     <div>
-                        <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 4px;">当前词库</div>
-                        <div style="font-size: 18px; font-weight: bold; display: flex; align-items: center;">
-                            <span id="currentLibName">默认词库</span>
-                            <span class="badge blue" id="currentLibCount">0词</span>
+                        <div style="font-size: 12px; color: rgba(0,200,255,0.7); margin-bottom: 4px;">当前词库</div>
+                        <div style="font-weight: bold; font-size: 18px; display: flex; align-items: center; gap: 8px;">
+                            <span id="currentLibName">默认库</span>
+                            <span id="currentLibCount" style="display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; background: #00ff88; color: #000;">0词</span>
                         </div>
                     </div>
-                    <button onclick="openLibSelector()" class="btn-secondary" style="width: auto; padding: 8px 16px;">切换</button>
+                    <button onclick="showLibSelector()" class="btn-secondary" style="padding: 8px 16px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-size: 14px; cursor: pointer;">切换词库</button>
                 </div>
 
-                <!-- 标签页 -->
-                <div class="lib-tabs">
-                    <div class="lib-tab active" onclick="switchLibTab('words', this)">单词列表</div>
-                    <div class="lib-tab" onclick="switchLibTab('add', this)">添加</div>
-                    <div class="lib-tab" onclick="switchLibTab('batch', this)">批量</div>
-                    <div class="lib-tab" onclick="switchLibTab('manage', this)">管理</div>
+                <div class="lib-tabs" id="libTabs">
+                    <button class="lib-tab active" data-tab="words" onclick="switchLibTab('words')">单词列表</button>
+                    <button class="lib-tab" data-tab="add" onclick="switchLibTab('add')">添加单词</button>
+                    <button class="lib-tab" data-tab="batch" onclick="switchLibTab('batch')">批量导入</button>
+                    <button class="lib-tab" data-tab="manage" onclick="switchLibTab('manage')">词库管理</button>
                 </div>
 
                 <!-- 单词列表 -->
-                <div id="tab-words" class="tab-content">
-                    <input type="text" class="search-box" placeholder="搜索单词..." oninput="filterWordList(this.value)">
-                    <div id="wordList" class="word-list">
-                        <div class="empty-state">暂无单词</div>
+                <div id="tab-words" class="lib-tab-content">
+                    <div style="position: relative; margin-bottom: 12px;">
+                        <input type="text" class="form-input" id="searchInput" placeholder="🔍 搜索单词..." autocomplete="off" inputmode="search" enterkeyhint="search">
                     </div>
+                    <div id="wordListContainer" class="word-list"></div>
                 </div>
 
-                <!-- 添加单词 -->
-                <div id="tab-add" class="tab-content" style="display: none;">
-                    <input type="text" id="newWordInput" class="form-input" placeholder="英文单词（如：hello）" autocomplete="off">
-                    <input type="text" id="newDefInput" class="form-input" placeholder="中文释义（可选，留空自动翻译）" autocomplete="off">
-                    <div class="btn-row">
-                        <button class="btn-primary" onclick="addSingleWord()" id="addBtn">添加单词</button>
-                        <button class="btn-secondary" onclick="translateInput()">翻译</button>
+                <!-- 添加单词 - 优化输入体验 -->
+                <div id="tab-add" class="lib-tab-content" style="display: none;">
+                    <div style="display: flex; flex-direction: column; gap: 16px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 8px; font-size: 14px; color: rgba(255,255,255,0.8);">
+                                英文单词 <span style="color: #ff6464;">*</span>
+                            </label>
+                            <div style="position: relative;">
+                                <input type="text" 
+                                       id="inputWord" 
+                                       class="form-input" 
+                                       style="padding-right: 60px;" 
+                                       placeholder="输入或拍照识别..." 
+                                       autocomplete="off" 
+                                       autocapitalize="off"
+                                       inputmode="email"
+                                       enterkeyhint="next"
+                                       onfocus="showInputFocus('word')"
+                                       onblur="showInputBlur('word')">
+                                <button class="inline-camera-btn" onclick="showImagePicker('word')" tabindex="-1">📷</button>
+                            </div>
+                            <div id="wordFocusHint" style="font-size: 11px; color: #00ff88; margin-top: 4px; opacity: 0; transition: opacity 0.2s;">✓ 键盘已就绪，请输入</div>
+                        </div>
+                        
+                        <div>
+                            <label style="display: block; margin-bottom: 8px; font-size: 14px; color: rgba(255,255,255,0.8);">
+                                中文释义 <span style="color: rgba(255,255,255,0.5);">(可选)</span>
+                            </label>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" 
+                                       id="inputDef" 
+                                       class="form-input" 
+                                       placeholder="留空自动翻译" 
+                                       autocomplete="off"
+                                       inputmode="text"
+                                       enterkeyhint="done"
+                                       onfocus="showInputFocus('def')"
+                                       onblur="showInputBlur('def')"
+                                       style="flex: 1;">
+                                <button class="camera-btn" onclick="showImagePicker('def')" style="padding: 0 18px;" tabindex="-1">🖼️</button>
+                            </div>
+                            <div id="defFocusHint" style="font-size: 11px; color: #00ff88; margin-top: 4px; opacity: 0; transition: opacity 0.2s;">✓ 可以输入中文释义</div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; margin-top: 8px;">
+                            <button onclick="addWordFromLib()" id="addWordBtn" class="btn-primary" style="flex: 1;">➕ 立即添加</button>
+                            <button onclick="autoTranslateAdd()" id="transBtn" style="padding: 14px 20px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 12px; color: white; font-size: 14px; cursor: pointer; white-space: nowrap;">🔄 翻译</button>
+                        </div>
+                        
+                        <!-- 快捷操作 -->
+                        <div style="padding: 16px; background: rgba(0,0,0,0.2); border-radius: 12px; border: 1px dashed rgba(0,200,255,0.3);">
+                            <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                                <span>⚡</span> 快捷操作：拍照直接添加
+                            </div>
+                            <button onclick="showImagePicker('auto')" style="width: 100%; padding: 12px; background: linear-gradient(135deg, rgba(0,168,255,0.2), rgba(0,102,255,0.2)); border: 1px solid rgba(0,200,255,0.4); border-radius: 10px; color: #00ffff; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; active: scale-0.95;">
+                                <span>📸</span> 拍照识别并自动添加
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <!-- 批量导入 -->
-                <div id="tab-batch" class="tab-content" style="display: none;">
-                    <textarea id="batchTextarea" class="form-input" rows="5" placeholder="每行一个单词&#10;格式：单词 释义&#10;例如：&#10;apple 苹果&#10;banana 香蕉"></textarea>
-                    <button class="btn-primary" onclick="addBatchWords()">批量添加</button>
-                    <button class="btn-secondary" onclick="document.getElementById('batchTextarea').value=''">清空</button>
+                <div id="tab-batch" class="lib-tab-content" style="display: none;">
+                    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                        <button onclick="showImagePicker('batch')" class="flex-1 py-3 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 active:scale-95 transition-transform flex items-center justify-center gap-2" style="background: rgba(0,200,255,0.15); border: 1px solid rgba(0,200,255,0.4); color: #00ffff; border-radius: 12px; cursor: pointer; font-size: 14px;">
+                            <span>📷</span> 拍照导入
+                        </button>
+                        <button onclick="pasteFromClipboard()" class="flex-1 py-3 rounded-xl bg-white/5 border border-white/20 active:scale-95 transition-transform flex items-center justify-center gap-2" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 12px; cursor: pointer; font-size: 14px;">
+                            <span>📋</span> 粘贴文本
+                        </button>
+                    </div>
+                    
+                    <textarea id="batchInput" 
+                              class="form-input" 
+                              rows="6" 
+                              placeholder="批量导入格式：&#10;apple 苹果&#10;banana 香蕉&#10;或从上方拍照识别..."
+                              inputmode="text"
+                              enterkeyhint="done"
+                              onfocus="this.style.borderColor='#00a8ff'"
+                              onblur="this.style.borderColor='rgba(0,200,255,0.2)'"
+                              style="resize: none; font-family: inherit; line-height: 1.6;"></textarea>
+                    
+                    <div style="display: flex; gap: 10px; margin-top: 12px;">
+                        <button onclick="addBatchWords()" id="batchAddBtn" class="btn-primary" style="flex: 1;">📥 批量添加</button>
+                        <button onclick="autoTranslateBatch()" id="batchTransBtn" style="padding: 14px 20px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 12px; color: white; font-size: 14px; cursor: pointer;">🔄 翻译</button>
+                    </div>
+                    
+                    <div style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: rgba(255,255,255,0.5); line-height: 1.6;">
+                        💡 支持从图片直接识别文字填入<br>
+                        💡 每行一个单词，格式为"单词 释义"
+                    </div>
                 </div>
 
                 <!-- 词库管理 -->
-                <div id="tab-manage" class="tab-content" style="display: none;">
-                    <div class="action-grid" style="grid-template-columns: 1fr; gap: 10px;">
-                        <button class="action-btn primary" onclick="createLibrary()" style="flex-direction: row; justify-content: center;">➕ 新建词库</button>
-                        <button class="action-btn secondary" onclick="renameLibrary()" style="flex-direction: row; justify-content: center;">✏️ 重命名</button>
-                        <button class="action-btn warning" onclick="clearLibrary()" style="flex-direction: row; justify-content: center;">🗑️ 清空单词</button>
-                        <button class="action-btn danger" onclick="deleteLibrary()" style="flex-direction: row; justify-content: center;">❌ 删除词库</button>
-                        <button class="action-btn secondary" onclick="exportLibrary()" style="flex-direction: row; justify-content: center;">📤 导出词库</button>
+                <div id="tab-manage" class="lib-tab-content" style="display: none;">
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <button onclick="createNewLibrary()" class="w-full p-4 rounded-xl text-left flex items-center gap-3 transition-colors" style="background: rgba(0,200,255,0.15); border: 1px solid rgba(0,200,255,0.4); color: #00ffff;">
+                            <span>➕</span> 新建词库
+                        </button>
+                        <button onclick="renameCurrentLibrary()" class="w-full p-4 rounded-xl bg-white/5 border border-white/10 text-left flex items-center gap-3 hover:bg-white/10 transition-colors">
+                            <span>✏️</span> 重命名
+                        </button>
+                        <button onclick="clearCurrentLibrary()" class="w-full p-4 rounded-xl text-left flex items-center gap-3 transition-colors" style="background: rgba(255,200,0,0.15); border: 1px solid rgba(255,200,0,0.4); color: #ffd700;">
+                            <span>🗑️</span> 清空词库
+                        </button>
+                        <button onclick="deleteCurrentLibrary()" class="w-full p-4 rounded-xl text-left flex items-center gap-3 transition-colors" style="background: rgba(255,50,50,0.15); border: 1px solid rgba(255,50,50,0.4); color: #ff6464;">
+                            <span>❌</span> 删除词库
+                        </button>
+                        <button onclick="exportCurrentLibrary()" class="w-full p-4 rounded-xl text-left flex items-center gap-3 transition-colors" style="background: rgba(150,0,255,0.15); border: 1px solid rgba(150,0,255,0.4); color: #c084fc;">
+                            <span>📤</span> 导出词库
+                        </button>
                     </div>
+                </div>
+            </div>
+
+            <!-- 词库选择器 -->
+            <div id="libSelector" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 opacity-0 transition-opacity" onclick="if(event.target===this)hideLibSelector()">
+                <div class="glass rounded-2xl p-6 w-full max-w-md max-h-[70vh] overflow-hidden flex flex-col transform scale-95 transition-transform" id="libSelectorBox" style="background: rgba(255,255,255,0.08); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.15);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h3 style="font-size: 18px; font-weight: bold; margin: 0;">选择词库</h3>
+                        <button onclick="hideLibSelector()" style="background: none; border: none; color: white; font-size: 28px; cursor: pointer; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; hover: background: rgba(255,255,255,0.1);">&times;</button>
+                    </div>
+                    <div id="libTreeList" style="overflow-y: auto; flex: 1; margin-right: -8px; padding-right: 8px;"></div>
+                    <button onclick="createNewLibrary()" class="mt-4 w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 font-bold" style="border: none; color: white; font-size: 16px; cursor: pointer;">+ 创建新词库</button>
                 </div>
             </div>
         </div>
@@ -220,904 +849,1331 @@
         <!-- OCR视图 -->
         <div id="ocrView" class="view">
             <div class="glass rounded-3xl p-6">
-                <h2 style="font-size: 20px; margin-bottom: 16px;">图片识别</h2>
-                <div class="image-upload-area" onclick="document.getElementById('ocrFile').click()">
-                    <div style="font-size: 48px; margin-bottom: 12px;">📷</div>
-                    <p style="margin-bottom: 8px;">点击上传图片</p>
-                    <p style="font-size: 13px; color: rgba(255,255,255,0.4);">自动识别图中的英文单词</p>
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                    <span>📷</span> 快速识图
+                </h2>
+                <div onclick="showImagePicker('standalone')" style="border: 2px dashed rgba(0,200,255,0.4); border-radius: 16px; padding: 40px 20px; text-align: center; cursor: pointer; transition: all 0.3s; active: scale-0.98;">
+                    <div style="font-size: 48px; margin-bottom: 12px;">📸</div>
+                    <p style="font-weight: 500; margin-bottom: 4px;">点击选择图片</p>
+                    <p style="font-size: 12px; color: rgba(255,255,255,0.5);">支持拍照或相册选择</p>
                 </div>
-                <input type="file" id="ocrFile" style="display: none;" accept="image/*" onchange="handleOCR(this)">
                 
-                <div id="ocrResultArea" style="margin-top: 20px; display: none;">
-                    <div style="background: rgba(0,0,0,0.3); border-radius: 16px; padding: 16px;">
-                        <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 8px;">识别结果（点击添加）</div>
-                        <div id="ocrWordList" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
-                    </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px;">
+                    <button onclick="showImagePicker('quickadd')" style="padding: 16px; border-radius: 12px; background: rgba(0,200,255,0.15); border: 1px solid rgba(0,200,255,0.4); color: #00ffff; font-size: 13px; cursor: pointer; active: scale-0.95;">
+                        <div style="font-size: 24px; margin-bottom: 4px;">➕</div>
+                        <div>拍照添加</div>
+                    </button>
+                    <button onclick="showImagePicker('batch')" style="padding: 16px; border-radius: 12px; background: rgba(150,0,255,0.15); border: 1px solid rgba(150,0,255,0.4); color: #c084fc; font-size: 13px; cursor: pointer; active: scale-0.95;">
+                        <div style="font-size: 24px; margin-bottom: 4px;">📚</div>
+                        <div>批量导入</div>
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 词库选择器 -->
-    <div id="libSelector" class="modal-overlay" onclick="closeLibSelector(event)">
-        <div class="modal-content" onclick="event.stopPropagation()">
-            <div class="modal-header">
-                <h3 style="margin: 0;">选择词库</h3>
-                <button class="modal-close" onclick="closeLibSelector()">&times;</button>
-            </div>
-            <div id="libList" style="max-height: 50vh; overflow-y: auto;">
-                <!-- 动态生成 -->
-            </div>
-            <button class="btn-primary" onclick="createLibrary()" style="margin-top: 16px; margin-bottom: 0;">+ 创建新词库</button>
-        </div>
-    </div>
-
-    <!-- 编辑单词对话框 -->
-    <div id="editDialog" class="modal-overlay" onclick="closeEditDialog(event)">
-        <div class="modal-content" onclick="event.stopPropagation()">
-            <div class="modal-header">
-                <h3 style="margin: 0;">编辑单词</h3>
-                <button class="modal-close" onclick="closeEditDialog()">&times;</button>
-            </div>
-            <input type="hidden" id="editOldWord">
-            <div style="margin-bottom: 8px; font-size: 13px; color: rgba(255,255,255,0.5);">英文单词</div>
-            <input type="text" id="editWordInput" class="form-input" style="margin-bottom: 16px;">
-            <div style="margin-bottom: 8px; font-size: 13px; color: rgba(255,255,255,0.5);">中文释义</div>
-            <input type="text" id="editDefInput" class="form-input" style="margin-bottom: 24px;">
-            <button class="btn-primary" onclick="saveEditWord()">保存修改</button>
-        </div>
-    </div>
-
-    <nav class="bottom-nav">
-        <button class="nav-btn active" onclick="switchView('study')">
-            <span style="font-size: 24px;">📖</span>
-            <span>学习</span>
+    <!-- 底部导航 -->
+    <nav class="bottom-nav" id="bottomNav">
+        <button class="nav-btn active" onclick="showView('study')" data-view="study">
+            <span style="font-size: 20px;">⌨️</span>
+            <span>练习</span>
         </button>
-        <button class="nav-btn" onclick="switchView('library')">
-            <span style="font-size: 24px;">📚</span>
+        <button class="nav-btn" onclick="showView('library')" data-view="library">
+            <span style="font-size: 20px;">📚</span>
             <span>词库</span>
         </button>
-        <button class="nav-btn" onclick="switchView('ocr')">
-            <span style="font-size: 24px;">📷</span>
+        <button class="nav-btn" onclick="showView('ocr')" data-view="ocr">
+            <span style="font-size: 20px;">📷</span>
             <span>识图</span>
         </button>
     </nav>
 
     <script>
-        // 严格模式确保代码健壮性
-        'use strict';
+        // 测试面板控制
+        function toggleTestPanel() {
+            const panel = document.getElementById('testPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        // 点击外部关闭测试面板
+        document.addEventListener('click', (e) => {
+            const panel = document.getElementById('testPanel');
+            const btn = document.getElementById('testBtn');
+            if (panel.style.display === 'block' && !panel.contains(e.target) && !btn.contains(e.target)) {
+                panel.style.display = 'none';
+            }
+        });
 
-        // 数据管理层
-        const DB = {
+        function logTest(msg, type = 'info') {
+            const log = document.getElementById('testLog');
+            const div = document.createElement('div');
+            const time = new Date().toLocaleTimeString();
+            div.innerHTML = `<span style="color:#666">[${time}]</span> ${msg}`;
+            div.style.color = type === 'error' ? '#f55' : (type === 'success' ? '#0f0' : '#fff');
+            div.style.marginBottom = '3px';
+            log.insertBefore(div, log.firstChild);
+            while (log.children.length > 20) log.removeChild(log.lastChild);
+        }
+
+        function clearTestLog() {
+            document.getElementById('testLog').innerHTML = '';
+        }
+
+        // 输入测试功能
+        function testTypingInput() {
+            logTest('开始测试打字输入...', 'info');
+            const container = document.getElementById('typingContainer');
+            const input = document.getElementById('typingInput');
+            
+            // 模拟点击
+            container.click();
+            
+            setTimeout(() => {
+                if (document.activeElement === input) {
+                    logTest('✓ 打字区域点击后Input已聚焦', 'success');
+                    showTestResult('typingTestResult', '键盘测试通过：点击可正常唤起键盘', true);
+                } else {
+                    logTest('✗ 打字区域点击后Input未聚焦', 'error');
+                    showTestResult('typingTestResult', '键盘测试失败：点击未能聚焦', false);
+                    // 强制聚焦
+                    input.focus();
+                }
+            }, 100);
+        }
+
+        function testAllInputs() {
+            logTest('测试所有输入框...', 'info');
+            const inputs = [
+                {id: 'inputWord', name: '英文输入'},
+                {id: 'inputDef', name: '中文输入'},
+                {id: 'batchInput', name: '批量导入'},
+                {id: 'searchInput', name: '搜索框'}
+            ];
+            
+            let current = 0;
+            function testNext() {
+                if (current >= inputs.length) {
+                    logTest('全部输入框测试完成', 'success');
+                    return;
+                }
+                const input = document.getElementById(inputs[current].id);
+                if (input && !input.offsetParent) {
+                    // 如果不在当前视图，跳过
+                    current++;
+                    testNext();
+                    return;
+                }
+                
+                input.focus();
+                setTimeout(() => {
+                    if (document.activeElement === input) {
+                        logTest(`✓ ${inputs[current].name} 可聚焦`, 'success');
+                    } else {
+                        logTest(`✗ ${inputs[current].name} 聚焦失败`, 'error');
+                    }
+                    current++;
+                    testNext();
+                }, 50);
+            }
+            
+            testNext();
+        }
+
+        function testKeyboardToggle() {
+            logTest('测试键盘唤起/收起...', 'info');
+            const input = document.getElementById('typingInput');
+            
+            // 聚焦
+            input.focus();
+            logTest('已触发focus，观察键盘是否弹出', 'info');
+            
+            setTimeout(() => {
+                // 失焦
+                input.blur();
+                logTest('已触发blur，观察键盘是否收起', 'info');
+            }, 2000);
+        }
+
+        function showTestResult(elementId, msg, success) {
+            const el = document.getElementById(elementId);
+            el.textContent = msg;
+            el.className = 'input-test-result show ' + (success ? 'success' : 'error');
+            setTimeout(() => {
+                el.classList.remove('show');
+            }, 3000);
+        }
+
+        // 输入框焦点提示
+        function showInputFocus(type) {
+            const hint = document.getElementById(type + 'FocusHint');
+            if (hint) hint.style.opacity = '1';
+            document.body.classList.add('keyboard-open');
+        }
+
+        function showInputBlur(type) {
+            const hint = document.getElementById(type + 'FocusHint');
+            if (hint) hint.style.opacity = '0';
+            // 延迟检查是否有其他输入框聚焦
+            setTimeout(() => {
+                const active = document.activeElement;
+                if (!active || !active.tagName === 'INPUT' && !active.tagName === 'TEXTAREA') {
+                    document.body.classList.remove('keyboard-open');
+                }
+            }, 100);
+        }
+
+        // ==================== 数据管理层 ====================
+        const Storage = {
+            keys: {
+                root: 'wm_lib_root',
+                current: 'wm_current_lib',
+                settings: 'wm_settings',
+                stats: 'wm_stats',
+                typing: 'wm_typing_stats'
+            },
             get(key, defaultVal = null) {
                 try {
                     const item = localStorage.getItem(key);
                     return item ? JSON.parse(item) : defaultVal;
-                } catch(e) {
-                    console.error('DB get error:', e);
-                    return defaultVal;
-                }
+                } catch(e) { return defaultVal; }
             },
             set(key, value) {
                 try {
                     localStorage.setItem(key, JSON.stringify(value));
                     return true;
                 } catch(e) {
-                    showToast('存储空间不足', 'error');
+                    showToast('存储失败', 'error');
                     return false;
                 }
             }
         };
 
-        // 全局状态
-        const State = {
-            root: null,
-            currentId: 'default',
-            currentIndex: 0,
-            input: [],
-            confirmCallback: null,
-            editingWord: null
+        let state = {
+            libraryRoot: null,
+            currentLibId: 'default',
+            settings: { autoTranslate: true, autoPlay: false },
+            currentView: 'study',
+            currentWordIndex: 0,
+            stats: { mastered: 0, streak: 1, lastStudy: null },
+            typing: {
+                targetWord: '',
+                currentInput: '',
+                startTime: null,
+                errors: 0,
+                totalChars: 0,
+                cursorPos: 0
+            },
+            ocr: { targetInput: null, lastResult: null },
+            isProcessing: false
         };
 
-        // 初始化
-        function init() {
-            // 加载或初始化数据
-            State.root = DB.get('wm_root', createDefaultRoot());
-            State.currentId = DB.get('wm_current', 'default');
-            
-            // 验证当前词库存在性
-            if (!findLibrary(State.currentId)) {
-                State.currentId = 'default';
-                DB.set('wm_current', 'default');
-            }
-            
-            // 确保默认库存在
-            if (!findLibrary('default')) {
-                const defaultLib = {
-                    id: 'default',
-                    name: '默认词库',
-                    type: 'library',
-                    words: [
-                        {w: 'hello', d: '你好'},
-                        {w: 'world', d: '世界'},
-                        {w: 'study', d: '学习'}
-                    ]
+        // LibraryAPI 实现...
+        const LibraryAPI = {
+            getRoot() { return Storage.get(Storage.keys.root, initDefaultData()); },
+            saveRoot(root) { 
+                const success = Storage.set(Storage.keys.root, root); 
+                if (success) state.libraryRoot = root; 
+                return success; 
+            },
+            findNode(id, node = null, path = []) {
+                if (!node) node = this.getRoot();
+                if (node.id === id) return {node, path};
+                if (node.children) {
+                    for (let child of node.children) {
+                        const result = this.findNode(id, child, [...path, node]);
+                        if (result) return result;
+                    }
+                }
+                return null;
+            },
+            findLibrary(id) {
+                const result = this.findNode(id);
+                if (result && result.node.type === 'library') return result;
+                return null;
+            },
+            getAllLibraries(node = null, list = [], path = '') {
+                if (!node) node = this.getRoot();
+                const currentPath = path ? `${path} > ${node.name}` : node.name;
+                if (node.type === 'library') list.push({id: node.id, name: node.name, path: currentPath, count: node.words?.length || 0});
+                if (node.children) node.children.forEach(child => this.getAllLibraries(child, list, currentPath));
+                return list;
+            },
+            create(parentId, name, type = 'library') {
+                const parent = this.findNode(parentId);
+                if (!parent) throw new Error('父节点不存在');
+                if (!parent.node.children) parent.node.children = [];
+                if (!name?.trim()) throw new Error('名称不能为空');
+                if (name.length > 50) throw new Error('名称过长');
+                if (parent.node.children.some(c => c.name === name)) throw new Error('名称已存在');
+                
+                const newNode = {
+                    id: `lib_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    name: name.trim(),
+                    type: type,
+                    created: Date.now(),
+                    children: type === 'folder' ? [] : undefined,
+                    words: type === 'library' ? [] : undefined
                 };
-                State.root.children.push(defaultLib);
-                saveData();
+                parent.node.children.push(newNode);
+                this.saveRoot(state.libraryRoot);
+                return newNode;
+            },
+            delete(id) {
+                const root = this.getRoot();
+                let deleted = false, deletedCurrent = false;
+                const removeFromParent = (parent, targetId) => {
+                    if (!parent.children) return false;
+                    const idx = parent.children.findIndex(c => c.id === targetId);
+                    if (idx >= 0) {
+                        const toDelete = parent.children[idx];
+                        const checkCurrent = (node) => { 
+                            if (node.id === state.currentLibId) return true; 
+                            if (node.children) return node.children.some(checkCurrent); 
+                            return false; 
+                        };
+                        if (checkCurrent(toDelete)) deletedCurrent = true;
+                        parent.children.splice(idx, 1);
+                        deleted = true;
+                        return true;
+                    }
+                    for (let child of parent.children) if (removeFromParent(child, targetId)) return true;
+                    return false;
+                };
+                removeFromParent(root, id);
+                if (deleted) {
+                    this.saveRoot(root);
+                    if (deletedCurrent) { state.currentLibId = 'default'; Storage.set(Storage.keys.current, 'default'); }
+                }
+                return {success: deleted, deletedCurrent};
+            },
+            rename(id, newName) {
+                if (!newName?.trim()) throw new Error('名称不能为空');
+                const target = this.findNode(id);
+                if (!target) throw new Error('节点不存在');
+                const parent = target.path[target.path.length - 1] || state.libraryRoot;
+                if (parent.children?.some(c => c.id !== id && c.name === newName)) throw new Error('名称已存在');
+                target.node.name = newName.trim();
+                this.saveRoot(state.libraryRoot);
+                return true;
+            },
+            addWord(libId, word, def) {
+                const lib = this.findLibrary(libId);
+                if (!lib) throw new Error('词库不存在');
+                const w = word.trim().toLowerCase();
+                if (!w) throw new Error('单词不能为空');
+                if (w.length > 100) throw new Error('单词过长');
+                if (lib.node.words.some(item => item.w === w)) throw new Error('单词已存在');
+                
+                const wordObj = { w: w, d: def?.trim() || '(未翻译)', ts: Date.now(), mastery: 0 };
+                lib.node.words.push(wordObj);
+                this.saveRoot(state.libraryRoot);
+                if (state.currentLibId === libId) updateStudyView();
+                return wordObj;
+            },
+            deleteWord(libId, wordText) {
+                const lib = this.findLibrary(libId);
+                if (!lib) return false;
+                const idx = lib.node.words.findIndex(w => w.w === wordText);
+                if (idx >= 0) {
+                    lib.node.words.splice(idx, 1);
+                    this.saveRoot(state.libraryRoot);
+                    if (state.currentLibId === libId) {
+                        if (state.currentWordIndex >= lib.node.words.length) state.currentWordIndex = Math.max(0, lib.node.words.length - 1);
+                        updateStudyView();
+                    }
+                    return true;
+                }
+                return false;
+            },
+            editWord(libId, oldWord, newWord, newDef) {
+                const lib = this.findLibrary(libId);
+                if (!lib) return false;
+                const item = lib.node.words.find(w => w.w === oldWord);
+                if (!item) return false;
+                const nw = newWord.trim().toLowerCase();
+                if (!nw) throw new Error('单词不能为空');
+                if (nw !== oldWord && lib.node.words.some(w => w.w === nw)) throw new Error('单词已存在');
+                item.w = nw;
+                item.d = newDef.trim();
+                item.ts = Date.now();
+                this.saveRoot(state.libraryRoot);
+                if (state.currentLibId === libId) updateStudyView();
+                return true;
+            },
+            clear(libId) {
+                const lib = this.findLibrary(libId);
+                if (!lib) return false;
+                lib.node.words = [];
+                this.saveRoot(state.libraryRoot);
+                if (state.currentLibId === libId) { state.currentWordIndex = 0; updateStudyView(); }
+                return true;
+            },
+            exportLib(libId) {
+                const lib = this.findLibrary(libId);
+                if (!lib) return null;
+                return { name: lib.node.name, words: lib.node.words, exportTime: new Date().toISOString(), version: '1.0' };
             }
-            
-            // 初始化视图
-            updateStudyView();
-            updateLibDisplay();
-            renderWordList();
-            
-            showToast('欢迎使用 WordMaster', 'success');
-        }
+        };
 
-        function createDefaultRoot() {
+        function initDefaultData() {
             return {
-                id: 'root',
-                name: '词库根',
-                type: 'folder',
-                children: []
+                id: 'root', name: '单词库', type: 'folder',
+                children: [{
+                    id: 'default', name: '默认词库', type: 'library',
+                    words: [
+                        {w: 'hello', d: '你好', ts: Date.now(), mastery: 0},
+                        {w: 'world', d: '世界', ts: Date.now(), mastery: 0},
+                        {w: 'study', d: '学习', ts: Date.now(), mastery: 0}
+                    ],
+                    created: Date.now()
+                }]
             };
         }
 
-        function saveData() {
-            DB.set('wm_root', State.root);
-            DB.set('wm_current', State.currentId);
-        }
-
-        // 查找函数
-        function findLibrary(id, node = null, path = []) {
-            if (!node) node = State.root;
-            if (node.id === id && node.type === 'library') return {node, path};
-            if (node.children) {
-                for (let child of node.children) {
-                    const result = findLibrary(id, child, [...path, node]);
-                    if (result) return result;
-                }
+        // ==================== 打字练习核心 ====================
+        
+        function initTypingPractice() {
+            const lib = LibraryAPI.findLibrary(state.currentLibId);
+            if (!lib?.node.words?.length) {
+                document.querySelector('.practice-card').style.display = 'none';
+                return;
             }
-            return null;
+            document.querySelector('.practice-card').style.display = 'block';
+            
+            const word = lib.node.words[state.currentWordIndex];
+            if (!word) return;
+            
+            state.typing.targetWord = word.w.toLowerCase();
+            state.typing.currentInput = '';
+            state.typing.startTime = null;
+            state.typing.errors = 0;
+            state.typing.totalChars = 0;
+            state.typing.cursorPos = 0;
+            
+            document.getElementById('practiceWord').textContent = word.w;
+            document.getElementById('practiceMeaning').textContent = word.d || '(暂无释义)';
+            
+            // 重置输入框
+            const input = document.getElementById('typingInput');
+            input.value = '';
+            
+            renderLetterBoxes();
+            updateTypingStats();
         }
 
-        function findNode(id, node = null) {
-            if (!node) node = State.root;
-            if (node.id === id) return node;
-            if (node.children) {
-                for (let child of node.children) {
-                    const result = findNode(id, child);
-                    if (result) return result;
+        function renderLetterBoxes() {
+            const container = document.getElementById('letterBoxes');
+            const word = state.typing.targetWord;
+            const input = state.typing.currentInput;
+            
+            container.innerHTML = word.split('').map((char, idx) => {
+                let className = 'letter-box';
+                let displayChar = '';
+                
+                if (idx < input.length) {
+                    displayChar = input[idx];
+                    className += input[idx] === char ? ' correct' : ' wrong';
+                } else if (idx === input.length) {
+                    className += ' pending cursor';
                 }
-            }
-            return null;
+                
+                return `<div class="${className}" data-idx="${idx}">${displayChar}</div>`;
+            }).join('');
         }
 
-        function getAllLibraries() {
-            const list = [];
-            function traverse(node, path = '') {
-                const currentPath = path ? `${path} > ${node.name}` : node.name;
-                if (node.type === 'library') {
-                    list.push({id: node.id, name: node.name, count: node.words.length, path: currentPath});
+        // 关键修复：确保点击能聚焦输入框
+        function focusTypingInput() {
+            const input = document.getElementById('typingInput');
+            const container = document.getElementById('typingContainer');
+            
+            // iOS需要这种双重聚焦技巧
+            input.focus();
+            input.click();
+            
+            // 添加视觉反馈
+            container.classList.add('focused');
+            
+            // 光标定位到末尾
+            const len = input.value.length;
+            if (input.setSelectionRange) {
+                input.setSelectionRange(len, len);
+            }
+            
+            // 触发提示
+            document.getElementById('typingHint').textContent = '⌨️ 请使用键盘输入字母';
+            document.getElementById('typingHint').classList.add('active');
+        }
+
+        function onTypingFocus() {
+            document.getElementById('typingContainer').classList.add('focused');
+            document.body.classList.add('keyboard-open');
+            document.getElementById('typingHint').textContent = '⌨️ 正在输入...';
+            document.getElementById('typingHint').classList.add('active');
+        }
+
+        function onTypingBlur() {
+            document.getElementById('typingContainer').classList.remove('focused');
+            document.getElementById('typingHint').textContent = '👆 点击此处输入单词字母';
+            document.getElementById('typingHint').classList.remove('active');
+            
+            // 延迟检查是否有其他输入框聚焦
+            setTimeout(() => {
+                const active = document.activeElement;
+                if (!active || (active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA')) {
+                    document.body.classList.remove('keyboard-open');
                 }
-                if (node.children) {
-                    node.children.forEach(child => traverse(child, currentPath));
-                }
+            }, 100);
+        }
+
+        function handleTyping(e) {
+            const input = e.target;
+            let value = input.value.toLowerCase();
+            const target = state.typing.targetWord;
+            
+            // 限制只能输入字母
+            value = value.replace(/[^a-z]/g, '');
+            
+            // 长度限制
+            if (value.length > target.length) {
+                value = value.slice(0, target.length);
             }
-            traverse(State.root);
-            return list;
-        }
-
-        // 视图切换（修复版：确保数据同步）
-        function switchView(view) {
-            // 更新导航状态
-            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-            event.currentTarget.classList.add('active');
             
-            // 切换视图
-            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-            document.getElementById(view + 'View').classList.add('active');
+            // 更新输入框（如果清理了字符）
+            if (input.value !== value) {
+                input.value = value;
+            }
             
-            // 刷新数据
-            if (view === 'library') {
-                renderWordList();
-                updateLibDisplay();
-            } else if (view === 'study') {
-                updateStudyView();
+            state.typing.currentInput = value;
+            
+            // 首次输入开始计时
+            if (!state.typing.startTime && value.length > 0) {
+                state.typing.startTime = Date.now();
+            }
+            
+            // 计算错误数（逐字母对比）
+            let errors = 0;
+            for (let i = 0; i < value.length; i++) {
+                if (value[i] !== target[i]) errors++;
+            }
+            state.typing.errors = errors;
+            state.typing.totalChars = value.length;
+            
+            renderLetterBoxes();
+            updateTypingStats();
+            
+            // 检查完成
+            if (value === target) {
+                completeTyping();
+            }
+            
+            // 触觉反馈
+            if (navigator.vibrate && value.length > 0) {
+                navigator.vibrate(3);
             }
         }
 
-        function switchLibTab(tab, element) {
-            document.querySelectorAll('.lib-tab').forEach(t => t.classList.remove('active'));
-            element.classList.add('active');
-            
-            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-            document.getElementById('tab-' + tab).style.display = 'block';
-            
-            if (tab === 'words') renderWordList();
-        }
-
-        // 学习功能（修复索引越界问题）
-        function updateStudyView() {
-            const lib = findLibrary(State.currentId);
-            const wordEl = document.getElementById('studyWord');
-            const defEl = document.getElementById('studyDef');
-            const indexEl = document.getElementById('wordIndex');
-            const countEl = document.getElementById('totalCount');
-            const badgeEl = document.getElementById('currentLibBadge');
-            
-            if (!lib || lib.node.words.length === 0) {
-                wordEl.textContent = 'No Words';
-                defEl.textContent = '当前词库为空，请先添加单词';
-                indexEl.textContent = '0';
-                countEl.textContent = '0';
-                badgeEl.textContent = lib ? lib.node.name : '无词库';
+        function handleTypingKey(e) {
+            // 防止退格导致页面后退
+            if (e.key === 'Backspace') {
+                // 允许正常的退格行为，不阻止
                 return;
             }
             
-            // 修复：确保索引不越界
-            if (State.currentIndex >= lib.node.words.length) {
-                State.currentIndex = 0;
+            // Tab切换单词
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                nextWord();
+                return;
             }
-            if (State.currentIndex < 0) State.currentIndex = 0;
             
-            const word = lib.node.words[State.currentIndex];
-            wordEl.textContent = word.w;
-            defEl.textContent = word.d || '暂无释义';
-            indexEl.textContent = State.currentIndex + 1;
-            countEl.textContent = lib.node.words.length;
-            badgeEl.textContent = lib.node.name;
+            // 回车完成
+            if (e.key === 'Enter' && state.typing.currentInput === state.typing.targetWord) {
+                e.preventDefault();
+                completeTyping();
+                return;
+            }
+        }
+
+        function updateTypingStats() {
+            const t = state.typing;
+            if (!t.startTime || t.totalChars === 0) {
+                updateAccuracyRing(0);
+                document.getElementById('speedStat').textContent = '0 字/分';
+                document.getElementById('accuracyStat').textContent = '准确率: 0%';
+                document.getElementById('timeStat').textContent = '0s';
+                return;
+            }
             
-            // 清空拼写区
-            State.input = [];
-            renderSpellingSlots(word.w.length);
+            const elapsed = (Date.now() - t.startTime) / 1000;
+            const minutes = elapsed / 60;
+            const speed = minutes > 0 ? Math.round(t.totalChars / minutes) : 0;
+            const accuracy = Math.max(0, Math.round((1 - (t.errors / t.totalChars)) * 100));
+            
+            document.getElementById('speedStat').textContent = speed + ' 字/分';
+            document.getElementById('accuracyStat').textContent = '准确率: ' + accuracy + '%';
+            document.getElementById('timeStat').textContent = Math.round(elapsed) + 's';
+            
+            updateAccuracyRing(accuracy);
+        }
+
+        function updateAccuracyRing(percent) {
+            const circle = document.getElementById('accuracyCircle');
+            const text = document.getElementById('accuracyText');
+            const circumference = 2 * Math.PI * 26;
+            
+            const offset = circumference - (percent / 100) * circumference;
+            circle.style.strokeDashoffset = offset;
+            
+            let color = '#ff6464';
+            if (percent >= 80) color = '#00ff88';
+            else if (percent >= 60) color = '#ffd700';
+            text.style.color = color;
+            text.textContent = percent + '%';
+        }
+
+        function completeTyping() {
+            const time = Math.round((Date.now() - state.typing.startTime) / 1000);
+            const accuracy = Math.max(0, Math.round((1 - (state.typing.errors / state.typing.totalChars)) * 100));
+            
+            showToast(`🎉 完成！用时${time}秒 准确率${accuracy}%`, 'success');
+            
+            // 保存统计
+            const history = Storage.get(Storage.keys.typing, []);
+            history.push({
+                word: state.typing.targetWord,
+                accuracy: accuracy,
+                time: time,
+                date: new Date().toISOString()
+            });
+            Storage.set(Storage.keys.typing, history.slice(-50));
+            
+            // 震动庆祝
+            if (navigator.vibrate) navigator.vibrate([50, 100, 50]);
+            
+            // 延迟后下一个
+            setTimeout(() => {
+                checkWord();
+                resetTyping();
+            }, 1200);
+        }
+
+        function resetTyping() {
+            const input = document.getElementById('typingInput');
+            input.value = '';
+            state.typing.currentInput = '';
+            state.typing.startTime = null;
+            state.typing.errors = 0;
+            state.typing.totalChars = 0;
+            initTypingPractice();
+            input.focus(); // 自动聚焦准备下一次输入
+        }
+
+        // ==================== OCR功能 ====================
+
+        function showImagePicker(target) {
+            state.ocr.targetInput = target;
+            document.getElementById('pickerBackdrop').classList.add('active');
+            document.getElementById('imagePicker').classList.add('active');
+            
+            // 如果键盘是打开的，先关闭
+            if (document.activeElement) {
+                document.activeElement.blur();
+            }
+        }
+
+        function hideImagePicker() {
+            document.getElementById('pickerBackdrop').classList.remove('active');
+            document.getElementById('imagePicker').classList.remove('active');
+        }
+
+        function triggerCamera(type) {
+            hideImagePicker();
+            const input = document.getElementById('hiddenFileInput');
+            input.value = '';
+            
+            if (type === 'camera' && navigator.userAgent.match(/iPhone|iPad|Android/i)) {
+                input.setAttribute('capture', 'environment');
+            } else {
+                input.removeAttribute('capture');
+            }
+            
+            setTimeout(() => input.click(), 100);
+        }
+
+        async function handleImageSelected(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            if (!file.type.startsWith('image/')) {
+                showToast('请选择图片文件', 'error');
+                return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                showToast('图片过大（最大10MB）', 'error');
+                return;
+            }
+            
+            // 显示预览
+            const url = URL.createObjectURL(file);
+            document.getElementById('ocrPreview').innerHTML = `<img src="${url}" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px;">`;
+            document.getElementById('ocrModal').classList.add('active');
+            
+            await performOCR(file);
+        }
+
+        async function performOCR(file) {
+            const statusEl = document.getElementById('ocrStatus');
+            const wordsList = document.getElementById('ocrWordsList');
+            const resultPanel = document.getElementById('ocrResultPanel');
+            const confirmBtn = document.getElementById('confirmOCRBtn');
+            const retryBtn = document.getElementById('retryBtn');
+            
+            statusEl.textContent = '正在识别...';
+            resultPanel.style.display = 'none';
+            confirmBtn.style.display = 'none';
+            retryBtn.style.display = 'none';
+            
+            try {
+                const result = await Tesseract.recognize(file, 'eng+chi_sim', {
+                    logger: m => {
+                        if (m.status === 'recognizing text') {
+                            statusEl.textContent = `识别中... ${Math.round(m.progress * 100)}%`;
+                        }
+                    }
+                });
+                
+                state.ocr.lastResult = result.data;
+                statusEl.textContent = `完成 (置信度: ${Math.round(result.confidence)}%)`;
+                
+                // 提取单词
+                const text = result.data.text;
+                const engWords = [...new Set((text.match(/[a-zA-Z]{3,20}/g) || []))].slice(0, 20);
+                const chinese = [...new Set((text.match(/[\u4e00-\u9fa5]{2,}/g) || []))].slice(0, 10);
+                
+                wordsList.innerHTML = '';
+                
+                if (engWords.length > 0) {
+                    const section = document.createElement('div');
+                    section.style.cssText = 'width: 100%; margin-bottom: 8px; font-size: 11px; color: rgba(255,255,255,0.5);';
+                    section.textContent = '英文单词 (点击填入):';
+                    wordsList.appendChild(section);
+                    
+                    engWords.forEach(word => {
+                        const btn = document.createElement('button');
+                        btn.style.cssText = 'padding: 6px 12px; border-radius: 20px; background: rgba(0,200,255,0.2); border: 1px solid rgba(0,200,255,0.4); color: #00ffff; font-size: 13px; cursor: pointer; margin: 0 4px 8px 0;';
+                        btn.textContent = word;
+                        btn.onclick = () => selectOCRWord(word);
+                        wordsList.appendChild(btn);
+                    });
+                }
+                
+                if (chinese.length > 0) {
+                    const section = document.createElement('div');
+                    section.style.cssText = 'width: 100%; margin: 8px 0; font-size: 11px; color: rgba(255,255,255,0.5);';
+                    section.textContent = '中文:';
+                    wordsList.appendChild(section);
+                    
+                    chinese.forEach(text => {
+                        const btn = document.createElement('button');
+                        btn.style.cssText = 'padding: 6px 12px; border-radius: 20px; background: rgba(255,200,0,0.2); border: 1px solid rgba(255,200,0,0.4); color: #ffd700; font-size: 13px; cursor: pointer; margin: 0 4px 8px 0;';
+                        btn.textContent = text;
+                        btn.onclick = () => selectOCRDef(text);
+                        wordsList.appendChild(btn);
+                    });
+                }
+                
+                document.getElementById('ocrFullText').textContent = text;
+                resultPanel.style.display = 'block';
+                confirmBtn.style.display = 'inline-block';
+                
+                // 自动处理
+                if (state.ocr.targetInput === 'auto' && engWords.length > 0) {
+                    await autoAddFromOCR(engWords[0], chinese[0] || '');
+                }
+                
+            } catch(err) {
+                statusEl.textContent = '识别失败';
+                retryBtn.style.display = 'inline-block';
+                showToast('识别失败', 'error');
+            }
+        }
+
+        function selectOCRWord(word) {
+            const target = state.ocr.targetInput;
+            
+            if (target === 'word' || target === 'quickadd') {
+                document.getElementById('inputWord').value = word;
+                closeOCRModal();
+                setTimeout(() => document.getElementById('inputWord').focus(), 100);
+            } else if (target === 'batch') {
+                const textarea = document.getElementById('batchInput');
+                textarea.value += (textarea.value ? '\n' : '') + word;
+                showToast(`已添加 ${word}`, 'success');
+            } else if (target === 'typing') {
+                closeOCRModal();
+                const lib = LibraryAPI.findLibrary(state.currentLibId);
+                const exists = lib.node.words.find(w => w.w.toLowerCase() === word.toLowerCase());
+                if (!exists) {
+                    showConfirm(`"${word}" 不在当前词库，是否添加并开始练习？`, () => {
+                        try {
+                            LibraryAPI.addWord(state.currentLibId, word, '');
+                            updateStudyView();
+                            initTypingPractice();
+                            // 找到新添加的单词并跳转
+                            const idx = lib.node.words.findIndex(w => w.w.toLowerCase() === word.toLowerCase());
+                            if (idx >= 0) {
+                                state.currentWordIndex = idx;
+                                updateStudyView();
+                                initTypingPractice();
+                            }
+                            showToast(`开始练习: ${word}`, 'success');
+                        } catch(e) {
+                            showToast(e.message, 'error');
+                        }
+                    });
+                } else {
+                    const idx = lib.node.words.indexOf(exists);
+                    state.currentWordIndex = idx;
+                    updateStudyView();
+                    initTypingPractice();
+                    showToast(`切换到: ${word}`, 'success');
+                }
+            } else {
+                document.getElementById('inputWord').value = word;
+                closeOCRModal();
+            }
+        }
+
+        function selectOCRDef(text) {
+            const target = state.ocr.targetInput;
+            if (target === 'def') {
+                document.getElementById('inputDef').value = text;
+                closeOCRModal();
+                setTimeout(() => document.getElementById('inputDef').focus(), 100);
+            } else if (target === 'batch') {
+                const textarea = document.getElementById('batchInput');
+                const lines = textarea.value.split('\n');
+                if (lines.length > 0 && lines[lines.length - 1].trim()) {
+                    lines[lines.length - 1] += ' ' + text;
+                    textarea.value = lines.join('\n');
+                } else {
+                    textarea.value += text;
+                }
+                showToast('已添加释义', 'success');
+            }
+        }
+
+        async function autoAddFromOCR(word, def) {
+            try {
+                LibraryAPI.addWord(state.currentLibId, word, def);
+                showToast(`已添加: ${word}`, 'success');
+                closeOCRModal();
+                updateCurrentLibDisplay();
+                renderWordList();
+                if (state.currentView === 'study') updateStudyView();
+            } catch(e) {
+                showToast(e.message, 'error');
+            }
+        }
+
+        function closeOCRModal() {
+            document.getElementById('ocrModal').classList.remove('active');
+        }
+
+        function retryOCR() {
+            const input = document.getElementById('hiddenFileInput');
+            if (input.files[0]) performOCR(input.files[0]);
+        }
+
+        function confirmOCR() {
+            closeOCRModal();
+        }
+
+        async function pasteFromClipboard() {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text) {
+                    document.getElementById('batchInput').value += (document.getElementById('batchInput').value ? '\n' : '') + text;
+                    showToast('已粘贴', 'success');
+                }
+            } catch(e) {
+                showToast('无法访问剪贴板', 'error');
+            }
+        }
+
+        // ==================== 原有功能函数 ====================
+
+        function init() {
+            state.libraryRoot = LibraryAPI.getRoot();
+            state.currentLibId = Storage.get(Storage.keys.current, 'default');
+            state.settings = Storage.get(Storage.keys.settings, {autoTranslate: true, autoPlay: false});
+            state.stats = Storage.get(Storage.keys.stats, {mastered: 0, streak: 1, lastStudy: null});
+            
+            if (!LibraryAPI.findLibrary(state.currentLibId)) {
+                state.currentLibId = 'default';
+                Storage.set(Storage.keys.current, 'default');
+            }
+            
+            bindEvents();
+            updateStudyView();
+            initTypingPractice();
+            renderWordList();
+            updateCurrentLibDisplay();
+        }
+
+        function bindEvents() {
+            // 全局键盘监听
+            document.addEventListener('keydown', (e) => {
+                if (state.currentView === 'library') {
+                    if (e.key === 'Enter' && document.activeElement.id === 'inputWord') {
+                        e.preventDefault();
+                        if (state.settings.autoTranslate) {
+                            autoTranslateAdd().then(() => addWordFromLib());
+                        } else {
+                            document.getElementById('inputDef').focus();
+                        }
+                    }
+                    if (e.key === 'Enter' && document.activeElement.id === 'inputDef') {
+                        e.preventDefault();
+                        addWordFromLib();
+                    }
+                    if (e.key === 'Enter' && e.ctrlKey && document.activeElement.id === 'batchInput') {
+                        e.preventDefault();
+                        addBatchWords();
+                    }
+                }
+                
+                // 打字练习的退格键特殊处理（防止页面后退）
+                if (e.key === 'Backspace' && document.activeElement.id === 'typingInput') {
+                    // 不阻止，让input正常处理
+                    if (document.activeElement.value === '') {
+                        e.preventDefault(); // 只有空时阻止页面后退
+                    }
+                }
+            });
+
+            // 搜索框
+            const searchInput = document.getElementById('searchInput');
+            let searchTimeout;
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => renderWordList(e.target.value), 150);
+            });
+
+            // 点击外部关闭
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#imagePicker') && !e.target.closest('.picker-backdrop')) {
+                    hideImagePicker();
+                }
+            });
+            
+            // 监听键盘弹出（resize事件）
+            let windowHeight = window.innerHeight;
+            window.addEventListener('resize', () => {
+                const newHeight = window.innerHeight;
+                if (newHeight < windowHeight * 0.8) {
+                    // 键盘可能弹出了
+                    document.body.classList.add('keyboard-open');
+                } else {
+                    document.body.classList.remove('keyboard-open');
+                }
+                windowHeight = newHeight;
+            });
+        }
+
+        function showView(viewName) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(viewName + 'View')?.classList.add('active');
+            document.querySelector(`.nav-btn[data-view="${viewName}"]`)?.classList.add('active');
+            state.currentView = viewName;
+            
+            if (viewName === 'study') {
+                updateStudyView();
+                initTypingPractice();
+            } else if (viewName === 'library') {
+                renderWordList();
+                updateCurrentLibDisplay();
+            }
+        }
+
+        function switchLibTab(tabName) {
+            document.querySelectorAll('.lib-tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.lib-tab[data-tab="${tabName}"]`)?.classList.add('active');
+            document.querySelectorAll('.lib-tab-content').forEach(c => c.style.display = 'none');
+            document.getElementById('tab-' + tabName).style.display = 'block';
+            
+            if (tabName === 'words') renderWordList();
+            else if (tabName === 'add') setTimeout(() => document.getElementById('inputWord').focus(), 100);
+        }
+
+        function updateStudyView() {
+            const lib = LibraryAPI.findLibrary(state.currentLibId);
+            const wd = document.getElementById('wordDisplay');
+            const dd = document.getElementById('definitionDisplay');
+            const wi = document.getElementById('wordIndex');
+            const tc = document.getElementById('totalCount');
+            
+            if (!lib?.node.words?.length) {
+                wd.textContent = '📚';
+                dd.textContent = '当前词库为空';
+                wi.textContent = '0';
+                tc.textContent = '0';
+                return;
+            }
+            
+            if (state.currentWordIndex >= lib.node.words.length) state.currentWordIndex = 0;
+            
+            const word = lib.node.words[state.currentWordIndex];
+            wd.textContent = word.w;
+            dd.textContent = word.d || '';
+            wi.textContent = (state.currentWordIndex + 1).toString();
+            tc.textContent = lib.node.words.length.toString();
         }
 
         function nextWord() {
-            const lib = findLibrary(State.currentId);
-            if (!lib || lib.node.words.length === 0) return;
-            
-            State.currentIndex = (State.currentIndex + 1) % lib.node.words.length;
+            const lib = LibraryAPI.findLibrary(state.currentLibId);
+            if (!lib?.node.words?.length) { showToast('词库为空', 'warning'); return; }
+            state.currentWordIndex = (state.currentWordIndex + 1) % lib.node.words.length;
             updateStudyView();
+            initTypingPractice();
             hideFeedback();
         }
 
-        function prevWord() {
-            const lib = findLibrary(State.currentId);
-            if (!lib || lib.node.words.length === 0) return;
-            
-            State.currentIndex = (State.currentIndex - 1 + lib.node.words.length) % lib.node.words.length;
-            updateStudyView();
-            hideFeedback();
-        }
-
-        function checkAnswer() {
-            const lib = findLibrary(State.currentId);
-            if (!lib || lib.node.words.length === 0) return;
-            
-            const word = lib.node.words[State.currentIndex];
-            const feedback = document.getElementById('feedback');
-            
-            // 简化的检查逻辑：直接显示正确（实际应该检查输入）
-            feedback.textContent = '✓ ' + word.d;
-            feedback.style.color = '#00ff88';
-            feedback.style.opacity = '1';
-            
-            setTimeout(() => {
-                nextWord();
-            }, 1500);
+        function checkWord() {
+            const lib = LibraryAPI.findLibrary(state.currentLibId);
+            if (!lib?.node.words?.length) return;
+            const word = lib.node.words[state.currentWordIndex];
+            word.mastery = (word.mastery || 0) + 1;
+            LibraryAPI.saveRoot(state.libraryRoot);
+            showFeedback('✓ 已掌握！', 'success');
         }
 
         function showHint() {
-            const lib = findLibrary(State.currentId);
-            if (!lib || lib.node.words.length === 0) return;
-            
-            const word = lib.node.words[State.currentIndex];
-            showToast('提示：首字母是 ' + word.w[0].toUpperCase(), 'info');
+            const lib = LibraryAPI.findLibrary(state.currentLibId);
+            if (!lib?.node.words?.length) return;
+            const word = lib.node.words[state.currentWordIndex];
+            showFeedback(`提示：首字母 ${word.w[0].toUpperCase()}`, 'info');
         }
 
-        function speakCurrent() {
-            const lib = findLibrary(State.currentId);
-            if (!lib || lib.node.words.length === 0) return;
-            
-            const word = lib.node.words[State.currentIndex];
-            if ('speechSynthesis' in window) {
-                const u = new SpeechSynthesisUtterance(word.w);
-                u.lang = 'en-US';
-                window.speechSynthesis.speak(u);
-            } else {
-                showToast('浏览器不支持语音', 'error');
-            }
-        }
-
-        function renderSpellingSlots(count) {
-            const area = document.getElementById('spellingArea');
-            area.innerHTML = '';
-            for (let i = 0; i < count; i++) {
-                const slot = document.createElement('div');
-                slot.className = 'spelling-slot' + (State.input[i] ? ' filled' : '');
-                slot.textContent = State.input[i] || '';
-                area.appendChild(slot);
-            }
+        function showFeedback(text, type) {
+            const fb = document.getElementById('feedback');
+            fb.textContent = text;
+            fb.style.opacity = '1';
+            fb.className = `h-8 text-center text-sm font-medium transition-opacity flex items-center justify-center ${type === 'success' ? 'text-emerald-400' : 'text-cyan-400'}`;
+            clearTimeout(window.feedbackTimer);
+            window.feedbackTimer = setTimeout(() => fb.style.opacity = '0', 2000);
         }
 
         function hideFeedback() {
-            const fb = document.getElementById('feedback');
-            fb.style.opacity = '0';
+            document.getElementById('feedback').style.opacity = '0';
         }
 
-        // 词库管理功能（修复空状态和同步问题）
-        function updateLibDisplay() {
-            const lib = findLibrary(State.currentId);
-            if (lib) {
-                document.getElementById('currentLibName').textContent = lib.node.name;
-                document.getElementById('currentLibCount').textContent = lib.node.words.length + '词';
+        function speakCurrent() {
+            const lib = LibraryAPI.findLibrary(state.currentLibId);
+            if (!lib?.node.words?.length) return;
+            const word = lib.node.words[state.currentWordIndex];
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(word.w);
+                u.lang = 'en-US';
+                window.speechSynthesis.speak(u);
             }
         }
 
-        function renderWordList(filter = '') {
-            const list = document.getElementById('wordList');
-            const lib = findLibrary(State.currentId);
+        // 词库管理函数...
+        function renderWordList(filterText = '') {
+            const container = document.getElementById('wordListContainer');
+            const lib = LibraryAPI.findLibrary(state.currentLibId);
             
-            if (!lib || lib.node.words.length === 0) {
-                list.innerHTML = '<div class="empty-state">暂无单词<br><span style="font-size: 13px; color: rgba(255,255,255,0.3); margin-top: 8px; display: block;">点击"添加"标签页创建</span></div>';
+            if (!lib?.node.words?.length) {
+                container.innerHTML = '<div style="text-align: center; padding: 40px 20px; color: rgba(255,255,255,0.4);"><div style="font-size: 48px; margin-bottom: 12px; opacity: 0.6;">📚</div><p>暂无单词</p></div>';
                 return;
             }
             
-            let words = lib.node.words;
-            if (filter) {
-                const lower = filter.toLowerCase();
-                words = words.filter(w => w.w.toLowerCase().includes(lower) || w.d.includes(lower));
+            let words = [...lib.node.words];
+            if (filterText) {
+                const lower = filterText.toLowerCase();
+                words = words.filter(w => w.w?.toLowerCase().includes(lower) || w.d?.includes(lower));
             }
+            words.sort((a, b) => (b.ts || 0) - (a.ts || 0));
             
-            if (words.length === 0) {
-                list.innerHTML = '<div class="empty-state">无匹配结果</div>';
-                return;
-            }
-            
-            // 使用字符串拼接而不是DOM操作，提高性能
-            let html = '';
-            words.forEach((word, idx) => {
-                html += `<div class="word-item" data-word="${escapeHtml(word.w)}" data-idx="${idx}">
-                    <div class="word-info">
-                        <div class="word-title">${escapeHtml(word.w)}</div>
-                        <div class="word-def">${escapeHtml(word.d)}</div>
+            container.innerHTML = words.map(w => `
+                <div style="display: flex; align-items: center; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 8px;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: bold; color: #00ffff; font-size: 16px;">${w.w}</div>
+                        <div style="color: rgba(255,255,255,0.6); font-size: 13px;">${w.d || ''}</div>
                     </div>
-                    <div class="word-actions">
-                        <button class="word-btn edit" onclick="openEditDialog('${escapeHtml(word.w)}')">编辑</button>
-                        <button class="word-btn delete" onclick="deleteWord('${escapeHtml(word.w)}')">删除</button>
-                    </div>
-                </div>`;
-            });
-            list.innerHTML = html;
+                    <button onclick="editWord('${w.w}')" style="padding: 6px 12px; margin-right: 8px; border-radius: 8px; background: rgba(0,200,255,0.2); border: none; color: #00ffff; font-size: 12px; cursor: pointer;">编辑</button>
+                    <button onclick="deleteWord('${w.w}')" style="padding: 6px 12px; border-radius: 8px; background: rgba(255,50,50,0.2); border: none; color: #ff6464; font-size: 12px; cursor: pointer;">删除</button>
+                </div>
+            `).join('');
         }
 
-        function filterWordList(value) {
-            renderWordList(value);
-        }
-
-        function escapeHtml(text) {
-            if (!text) return '';
-            return text
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-        }
-
-        // 添加单词（修复重复添加和空值问题）
-        async function addSingleWord() {
-            const wordInput = document.getElementById('newWordInput');
-            const defInput = document.getElementById('newDefInput');
-            const btn = document.getElementById('addBtn');
+        async function addWordFromLib() {
+            if (state.isProcessing) return;
+            const wi = document.getElementById('inputWord');
+            const di = document.getElementById('inputDef');
+            const btn = document.getElementById('addWordBtn');
             
-            const word = wordInput.value.trim().toLowerCase();
-            const def = defInput.value.trim();
+            const word = wi.value.trim();
+            const def = di.value.trim();
             
-            if (!word) {
-                showToast('请输入英文单词', 'error');
-                return;
-            }
+            if (!word) { showToast('请输入英文单词', 'error'); wi.focus(); return; }
             
-            // 检查重复
-            const lib = findLibrary(State.currentId);
-            if (lib.node.words.some(w => w.w === word)) {
-                showToast('该单词已存在', 'error');
-                return;
-            }
+            state.isProcessing = true;
+            btn.disabled = true;
             
-            // 自动翻译
-            let finalDef = def;
-            if (!finalDef) {
-                btn.innerHTML = '翻译中<span class="loading"></span>';
-                finalDef = await translate(word);
-                btn.innerHTML = '添加单词';
-                if (!finalDef) finalDef = '(未翻译)';
-            }
-            
-            // 添加
-            lib.node.words.push({
-                w: word,
-                d: finalDef,
-                ts: Date.now()
-            });
-            
-            saveData();
-            
-            // 清空输入
-            wordInput.value = '';
-            defInput.value = '';
-            
-            showToast('添加成功：' + word, 'success');
-            
-            // 如果在单词列表页，刷新列表
-            if (document.getElementById('tab-words').style.display !== 'none') {
-                renderWordList();
-            }
-            
-            updateLibDisplay();
-            
-            // 如果学习视图当前为空，刷新它
-            if (document.getElementById('studyWord').textContent === 'No Words') {
-                updateStudyView();
-            }
-        }
-
-        async function translateInput() {
-            const wordInput = document.getElementById('newWordInput');
-            const defInput = document.getElementById('newDefInput');
-            
-            const word = wordInput.value.trim();
-            if (!word) {
-                showToast('请先输入英文', 'error');
-                return;
-            }
-            
-            const result = await translate(word);
-            if (result) {
-                defInput.value = result;
-                showToast('翻译完成', 'success');
-            } else {
-                showToast('翻译失败', 'error');
-            }
-        }
-
-        async function translate(text) {
             try {
-                const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|zh`);
-                const data = await res.json();
-                return data.responseData?.translatedText || '';
+                let finalDef = def;
+                if (!finalDef && state.settings.autoTranslate) {
+                    showToast('翻译中...', 'info');
+                    finalDef = await translateWord(word);
+                }
+                LibraryAPI.addWord(state.currentLibId, word, finalDef);
+                showToast('添加成功: ' + word, 'success');
+                wi.value = '';
+                di.value = '';
+                renderWordList();
+                updateCurrentLibDisplay();
+                wi.focus();
             } catch(e) {
-                return '';
+                showToast(e.message, 'error');
+            } finally {
+                state.isProcessing = false;
+                btn.disabled = false;
+            }
+        }
+
+        async function autoTranslateAdd() {
+            const wi = document.getElementById('inputWord');
+            const di = document.getElementById('inputDef');
+            const word = wi.value.trim();
+            if (!word) { showToast('请先输入英文', 'error'); return; }
+            
+            showToast('翻译中...', 'info');
+            const trans = await translateWord(word);
+            if (trans) {
+                di.value = trans;
+                showToast('翻译完成', 'success');
+                di.focus();
+            } else {
+                showToast('翻译失败', 'warning');
             }
         }
 
         async function addBatchWords() {
-            const textarea = document.getElementById('batchTextarea');
-            const text = textarea.value.trim();
+            const bi = document.getElementById('batchInput');
+            const text = bi.value.trim();
+            if (!text) { showToast('请输入内容', 'error'); return; }
             
-            if (!text) {
-                showToast('请输入内容', 'error');
-                return;
-            }
-            
-            const lines = text.split('\n');
-            const lib = findLibrary(State.currentId);
-            let added = 0;
-            let existed = 0;
-            let failed = 0;
+            const lines = text.split('\n').filter(l => l.trim());
+            let added = 0, skipped = 0;
             
             for (let line of lines) {
-                line = line.trim();
-                if (!line) continue;
-                
-                const parts = line.split(/\s+/);
-                const word = parts[0].toLowerCase();
+                const parts = line.trim().split(/\s+/);
+                const word = parts[0];
+                const def = parts.slice(1).join(' ');
+                try {
+                    LibraryAPI.addWord(state.currentLibId, word, def);
+                    added++;
+                } catch(e) { if (e.message.includes('已存在')) skipped++; }
+            }
+            
+            showToast(`成功${added}，跳过${skipped}`, added > 0 ? 'success' : 'warning');
+            if (added > 0) {
+                bi.value = '';
+                renderWordList();
+                updateCurrentLibDisplay();
+                switchLibTab('words');
+            }
+        }
+
+        async function autoTranslateBatch() {
+            const bi = document.getElementById('batchInput');
+            const lines = bi.value.trim().split('\n');
+            if (!lines.length) return;
+            
+            showToast('批量翻译中...', 'info');
+            const result = [];
+            for (let line of lines) {
+                const parts = line.trim().split(/\s+/);
+                const word = parts[0];
                 let def = parts.slice(1).join(' ');
-                
-                if (!word) continue;
-                
-                // 检查重复
-                if (lib.node.words.some(w => w.w === word)) {
-                    existed++;
-                    continue;
+                if (word && !def) {
+                    def = await translateWord(word) || '(失败)';
+                    await new Promise(r => setTimeout(r, 200));
                 }
-                
-                // 如果需要自动翻译且没有释义
-                if (!def && added < 5) { // 限制自动翻译数量避免被封
-                    def = await translate(word) || '(未翻译)';
-                    await new Promise(r => setTimeout(r, 300)); // 节流
-                } else if (!def) {
-                    def = '(未翻译)';
-                }
-                
-                lib.node.words.push({
-                    w: word,
-                    d: def,
-                    ts: Date.now()
-                });
-                added++;
+                result.push(`${word} ${def}`);
             }
-            
-            saveData();
-            textarea.value = '';
-            
-            let msg = `成功${added}个`;
-            if (existed) msg += `，重复${existed}个`;
-            showToast(msg, 'success');
-            
-            renderWordList();
-            updateLibDisplay();
-            updateStudyView();
+            bi.value = result.join('\n');
+            showToast('翻译完成', 'success');
         }
 
-        function deleteWord(word) {
-            showConfirm(
-                '删除单词',
-                `确定删除 "${word}" 吗？`,
-                () => {
-                    const lib = findLibrary(State.currentId);
-                    const idx = lib.node.words.findIndex(w => w.w === word);
-                    if (idx >= 0) {
-                        lib.node.words.splice(idx, 1);
-                        saveData();
-                        
-                        // 修复：如果删除的是当前学习的单词或之前的单词，调整索引
-                        if (idx < State.currentIndex) {
-                            State.currentIndex--;
-                        } else if (idx === State.currentIndex) {
-                            // 如果删除的是当前单词，保持索引（下一个单词会填补这个位置）
-                            if (State.currentIndex >= lib.node.words.length) {
-                                State.currentIndex = 0;
-                            }
-                        }
-                        
-                        renderWordList();
-                        updateLibDisplay();
-                        updateStudyView();
-                        showToast('已删除', 'success');
-                    }
-                },
-                'danger'
-            );
-        }
-
-        function openEditDialog(word) {
-            const lib = findLibrary(State.currentId);
-            const w = lib.node.words.find(item => item.w === word);
-            if (!w) return;
-            
-            document.getElementById('editOldWord').value = word;
-            document.getElementById('editWordInput').value = w.w;
-            document.getElementById('editDefInput').value = w.d;
-            
-            document.getElementById('editDialog').classList.add('active');
-        }
-
-        function saveEditWord() {
-            const oldWord = document.getElementById('editOldWord').value;
-            const newWord = document.getElementById('editWordInput').value.trim().toLowerCase();
-            const newDef = document.getElementById('editDefInput').value.trim();
-            
-            if (!newWord) {
-                showToast('单词不能为空', 'error');
-                return;
+        function deleteWord(wordText) {
+            if (!confirm(`删除 "${wordText}"？`)) return;
+            if (LibraryAPI.deleteWord(state.currentLibId, wordText)) {
+                showToast('已删除', 'success');
+                renderWordList();
+                updateCurrentLibDisplay();
             }
-            
-            const lib = findLibrary(State.currentId);
-            const idx = lib.node.words.findIndex(w => w.w === oldWord);
-            
-            if (idx >= 0) {
-                // 检查是否改名成已存在的单词
-                if (newWord !== oldWord && lib.node.words.some(w => w.w === newWord)) {
-                    showToast('该单词已存在', 'error');
-                    return;
-                }
-                
-                lib.node.words[idx].w = newWord;
-                lib.node.words[idx].d = newDef;
-                saveData();
-                
-                closeEditDialog();
+        }
+
+        function editWord(wordText) {
+            const lib = LibraryAPI.findLibrary(state.currentLibId);
+            const word = lib.node.words.find(w => w.w === wordText);
+            if (!word) return;
+            const newWord = prompt('修改单词：', word.w);
+            if (newWord === null) return;
+            const newDef = prompt('修改释义：', word.d);
+            if (newDef === null) return;
+            try {
+                LibraryAPI.editWord(state.currentLibId, wordText, newWord || word.w, newDef);
+                showToast('修改成功', 'success');
                 renderWordList();
                 updateStudyView();
-                showToast('修改成功', 'success');
-            }
+            } catch(e) { showToast(e.message, 'error'); }
         }
 
-        function closeEditDialog(e) {
-            if (e && e.target !== e.currentTarget && !e.target.classList.contains('modal-close')) return;
-            document.getElementById('editDialog').classList.remove('active');
-        }
-
-        // 词库级别操作
-        function openLibSelector() {
-            const list = document.getElementById('libList');
-            const libs = getAllLibraries();
+        function showLibSelector() {
+            const sel = document.getElementById('libSelector');
+            const list = document.getElementById('libTreeList');
+            const libs = LibraryAPI.getAllLibraries();
             
-            let html = '';
-            libs.forEach(lib => {
-                const isActive = lib.id === State.currentId;
-                html += `<div class="lib-tree-item ${isActive ? 'active' : ''}" onclick="selectLibrary('${lib.id}')" style="margin-bottom: 8px;">
-                    <div class="lib-icon">${isActive ? '✓' : '📚'}</div>
-                    <div class="lib-name">${escapeHtml(lib.path)}</div>
-                    <div class="lib-count">${lib.count}词</div>
-                </div>`;
-            });
+            list.innerHTML = libs.map(lib => `
+                <div onclick="selectLibrary('${lib.id}')" style="display: flex; align-items: center; padding: 12px; margin-bottom: 6px; border-radius: 10px; cursor: pointer; transition: all 0.2s; ${lib.id === state.currentLibId ? 'background: rgba(0,200,255,0.2); border: 1px solid rgba(0,200,255,0.4);' : 'background: rgba(255,255,255,0.05);'}">
+                    <div style="width: 32px; text-align: center; margin-right: 12px; font-size: 18px;">${lib.id === state.currentLibId ? '✓' : '📚'}</div>
+                    <div style="flex: 1; font-weight: 500;">${lib.path}</div>
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.5);">${lib.count}词</div>
+                </div>
+            `).join('');
             
-            list.innerHTML = html;
-            document.getElementById('libSelector').classList.add('active');
+            sel.classList.remove('hidden');
+            setTimeout(() => {
+                sel.classList.remove('opacity-0');
+                document.getElementById('libSelectorBox').classList.remove('scale-95');
+                document.getElementById('libSelectorBox').classList.add('scale-100');
+            }, 10);
         }
 
-        function closeLibSelector(e) {
-            if (e && e.target !== e.currentTarget && !e.target.classList.contains('modal-close')) return;
-            document.getElementById('libSelector').classList.remove('active');
+        function hideLibSelector() {
+            const sel = document.getElementById('libSelector');
+            sel.classList.add('opacity-0');
+            document.getElementById('libSelectorBox').classList.remove('scale-100');
+            document.getElementById('libSelectorBox').classList.add('scale-95');
+            setTimeout(() => sel.classList.add('hidden'), 300);
         }
 
         function selectLibrary(id) {
-            State.currentId = id;
-            State.currentIndex = 0; // 重置索引
-            saveData();
-            
-            closeLibSelector();
-            updateLibDisplay();
+            state.currentLibId = id;
+            Storage.set(Storage.keys.current, id);
+            hideLibSelector();
+            updateCurrentLibDisplay();
             renderWordList();
             updateStudyView();
+            initTypingPractice();
             showToast('已切换词库', 'success');
         }
 
-        function createLibrary() {
+        function createNewLibrary() {
             const name = prompt('新词库名称：');
-            if (!name || !name.trim()) return;
-            
-            // 检查重名
-            const exists = getAllLibraries().some(l => l.name === name.trim());
-            if (exists) {
-                showToast('该名称已存在', 'error');
-                return;
-            }
-            
-            const newLib = {
-                id: 'lib_' + Date.now(),
-                name: name.trim(),
-                type: 'library',
-                words: [],
-                created: Date.now()
-            };
-            
-            State.root.children.push(newLib);
-            saveData();
-            
-            showToast('创建成功', 'success');
-            
-            // 如果在选择器里，刷新选择器
-            const selector = document.getElementById('libSelector');
-            if (selector.classList.contains('active')) {
-                openLibSelector();
-            }
-            
-            // 询问是否切换
-            if (confirm('是否切换到新词库？')) {
-                selectLibrary(newLib.id);
-            }
+            if (!name?.trim()) return;
+            try {
+                const newLib = LibraryAPI.create('root', name.trim(), 'library');
+                showToast('创建成功', 'success');
+                if (confirm('切换到新词库？')) selectLibrary(newLib.id);
+            } catch(e) { showToast(e.message, 'error'); }
         }
 
-        function renameLibrary() {
-            const lib = findLibrary(State.currentId);
+        function renameCurrentLibrary() {
+            const lib = LibraryAPI.findLibrary(state.currentLibId);
             if (!lib) return;
-            
-            const newName = prompt('新名称：', lib.node.name);
-            if (!newName || !newName.trim() || newName === lib.node.name) return;
-            
-            // 检查重名（不包括自己）
-            const exists = getAllLibraries().some(l => l.name === newName.trim() && l.id !== State.currentId);
-            if (exists) {
-                showToast('该名称已存在', 'error');
-                return;
-            }
-            
-            lib.node.name = newName.trim();
-            saveData();
-            updateLibDisplay();
-            showToast('重命名成功', 'success');
+            const name = prompt('新名称：', lib.node.name);
+            if (!name?.trim()) return;
+            try {
+                LibraryAPI.rename(state.currentLibId, name.trim());
+                updateCurrentLibDisplay();
+                showToast('重命名成功', 'success');
+            } catch(e) { showToast(e.message, 'error'); }
         }
 
-        function clearLibrary() {
-            const lib = findLibrary(State.currentId);
-            if (!lib || lib.node.words.length === 0) {
-                showToast('词库已是空的', 'info');
-                return;
+        function clearCurrentLibrary() {
+            const lib = LibraryAPI.findLibrary(state.currentLibId);
+            if (!lib?.node.words?.length) { showToast('词库已是空的', 'info'); return; }
+            if (!confirm(`清空 ${lib.node.words.length} 个单词？`)) return;
+            if (LibraryAPI.clear(state.currentLibId)) {
+                showToast('已清空', 'success');
+                renderWordList();
+                updateCurrentLibDisplay();
+                updateStudyView();
             }
-            
-            showConfirm(
-                '清空词库',
-                `确定清空 "${lib.node.name}" 的 ${lib.node.words.length} 个单词吗？`,
-                () => {
-                    lib.node.words = [];
-                    State.currentIndex = 0;
-                    saveData();
-                    renderWordList();
-                    updateLibDisplay();
-                    updateStudyView();
-                    showToast('已清空', 'success');
-                },
-                'danger'
-            );
         }
 
-        function deleteLibrary() {
-            if (State.currentId === 'default') {
-                showToast('不能删除默认词库', 'error');
-                return;
-            }
-            
-            const lib = findLibrary(State.currentId);
+        function deleteCurrentLibrary() {
+            if (state.currentLibId === 'default') { showToast('不能删除默认词库', 'error'); return; }
+            const lib = LibraryAPI.findLibrary(state.currentLibId);
             if (!lib) return;
-            
-            showConfirm(
-                '删除词库',
-                `确定删除 "${lib.node.name}" 吗？其中的 ${lib.node.words.length} 个单词将丢失！`,
-                () => {
-                    function removeFrom(parent, id) {
-                        if (!parent.children) return false;
-                        const idx = parent.children.findIndex(c => c.id === id);
-                        if (idx >= 0) {
-                            parent.children.splice(idx, 1);
-                            return true;
-                        }
-                        for (let child of parent.children) {
-                            if (removeFrom(child, id)) return true;
-                        }
-                        return false;
-                    }
-                    
-                    if (removeFrom(State.root, State.currentId)) {
-                        State.currentId = 'default';
-                        State.currentIndex = 0;
-                        saveData();
-                        closeLibSelector();
-                        updateLibDisplay();
-                        renderWordList();
-                        updateStudyView();
-                        showToast('词库已删除', 'success');
-                    }
-                },
-                'danger'
-            );
+            if (!confirm(`删除 "${lib.node.name}"？`)) return;
+            const result = LibraryAPI.delete(state.currentLibId);
+            if (result.success) {
+                showToast('已删除', 'success');
+                if (result.deletedCurrent) selectLibrary('default');
+            }
         }
 
-        function exportLibrary() {
-            const lib = findLibrary(State.currentId);
-            if (!lib) return;
-            
-            const data = {
-                name: lib.node.name,
-                words: lib.node.words,
-                exportTime: new Date().toISOString()
-            };
-            
+        function exportCurrentLibrary() {
+            const data = LibraryAPI.exportLib(state.currentLibId);
+            if (!data) { showToast('导出失败', 'error'); return; }
             const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${lib.node.name}_导出_${new Date().toISOString().slice(0,10)}.json`;
-            document.body.appendChild(a);
+            a.download = `${data.name}_export_${new Date().toISOString().slice(0,10)}.json`;
             a.click();
-            document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            
             showToast('导出成功', 'success');
         }
 
-        // OCR功能
-        async function handleOCR(input) {
-            const file = input.files[0];
-            if (!file) return;
-            
-            showToast('正在识别...', 'info');
-            
+        function updateCurrentLibDisplay() {
+            const lib = LibraryAPI.findLibrary(state.currentLibId);
+            if (lib?.node) {
+                document.getElementById('currentLibName').textContent = lib.node.name;
+                document.getElementById('currentLibCount').textContent = (lib.node.words?.length || 0) + '词';
+            }
+        }
+
+        const translationCache = {};
+        async function translateWord(text) {
+            if (!text) return '';
+            if (translationCache[text]) return translationCache[text];
             try {
-                const result = await Tesseract.recognize(file, 'eng', {
-                    logger: m => {
-                        if (m.status === 'recognizing text') {
-                            console.log('识别进度：', m.progress);
-                        }
-                    }
-                });
-                
-                const text = result.data.text;
-                const words = text
-                    .replace(/[^\w\s]/g, ' ')
-                    .split(/\s+/)
-                    .filter(w => w.length >= 3 && w.length <= 20)
-                    .filter((v, i, a) => a.indexOf(v) === i)
-                    .slice(0, 10);
-                
-                const list = document.getElementById('ocrWordList');
-                if (words.length === 0) {
-                    list.innerHTML = '<span style="color: rgba(255,255,255,0.5);">未识别到有效单词</span>';
-                } else {
-                    list.innerHTML = words.map(w => 
-                        `<button onclick="addOCRWord('${w.replace(/'/g, "\\'")}')" style="padding: 8px 16px; background: rgba(0,200,255,0.2); border: 1px solid rgba(0,200,255,0.4); color: #00ffff; border-radius: 20px; cursor: pointer; font-size: 14px;">+ ${w}</button>`
-                    ).join('');
+                const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|zh`);
+                const data = await res.json();
+                const result = data.responseData?.translatedText;
+                if (result && result !== text) {
+                    translationCache[text] = result;
+                    return result;
                 }
-                
-                document.getElementById('ocrResultArea').style.display = 'block';
-                showToast(`识别到 ${words.length} 个单词`, 'success');
-                
-            } catch(e) {
-                showToast('识别失败：' + e.message, 'error');
-            }
-            
-            input.value = ''; // 允许重复选择同一文件
+                return '';
+            } catch(e) { return ''; }
         }
 
-        async function addOCRWord(word) {
-            try {
-                const lib = findLibrary(State.currentId);
-                if (lib.node.words.some(w => w.w === word)) {
-                    showToast('该单词已存在', 'error');
-                    return;
-                }
-                
-                const def = await translate(word) || '(OCR识别)';
-                lib.node.words.push({w: word, d: def, ts: Date.now()});
-                saveData();
-                showToast('已添加：' + word, 'success');
-                updateLibDisplay();
-            } catch(e) {
-                showToast('添加失败', 'error');
-            }
-        }
-
-        // 确认对话框系统
-        function showConfirm(title, text, callback, type = 'safe') {
-            document.getElementById('confirmTitle').textContent = title;
-            document.getElementById('confirmText').textContent = text;
-            document.getElementById('confirmDialog').classList.add('active');
-            
-            const okBtn = document.getElementById('confirmOkBtn');
-            okBtn.className = 'confirm-btn ok ' + (type === 'danger' ? '' : 'safe');
-            
-            State.confirmCallback = callback;
-        }
-
-        function closeConfirm() {
-            document.getElementById('confirmDialog').classList.remove('active');
-            State.confirmCallback = null;
-        }
-
-        function executeConfirm() {
-            if (State.confirmCallback) {
-                State.confirmCallback();
-                State.confirmCallback = null;
-            }
-            closeConfirm();
-        }
-
-        // Toast提示
-        function showToast(message, type = 'info') {
+        function showToast(msg, type = 'info', duration = 3000) {
             const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.className = 'toast ' + type;
-            
-            // 强制重绘
+            toast.textContent = msg;
+            toast.className = `toast ${type}`;
             void toast.offsetWidth;
-            
             toast.classList.add('show');
-            
-            // 如果有之前的定时器，清除它
-            if (toast.hideTimer) clearTimeout(toast.hideTimer);
-            
-            toast.hideTimer = setTimeout(() => {
-                toast.classList.remove('show');
-            }, 3000);
+            clearTimeout(window.toastTimer);
+            window.toastTimer = setTimeout(() => toast.classList.remove('show'), duration);
+        }
+
+        function showConfirm(text, onConfirm) {
+            if (confirm(text)) onConfirm();
         }
 
         // 启动
-        init();
+        window.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
