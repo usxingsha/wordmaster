@@ -1678,233 +1678,341 @@
             confirmCallback: null
         };
 
-        // LibraryAPI 实现 - 修复版
-        const LibraryAPI = {
-            getRoot() { return Storage.get(Storage.keys.root, initDefaultData()); },
-            saveRoot(root) { 
-                const success = Storage.set(Storage.keys.root, root); 
-                if (success) state.libraryRoot = root; 
-                return success; 
-            },
-            findNode(id, node = null, path = []) {
-                if (!node) node = this.getRoot();
-                if (node.id === id) return {node, path};
-                if (node.children) {
-                    for (let child of node.children) {
-                        const result = this.findNode(id, child, [...path, node]);
-                        if (result) return result;
-                    }
-                }
-                return null;
-            },
-            findLibrary(id) {
-                const result = this.findNode(id);
-                if (result && result.node.type === 'library') return result;
-                return null;
-            },
-            getAllLibraries(node = null, list = [], path = '') {
-                if (!node) node = this.getRoot();
-                const currentPath = path ? `${path} > ${node.name}` : node.name;
-                if (node.type === 'library') list.push({id: node.id, name: node.name, path: currentPath, count: node.words?.length || 0});
-                if (node.children) node.children.forEach(child => this.getAllLibraries(child, list, currentPath));
-                return list;
-            },
-            create(parentId, name, type = 'library') {
-                // 修复：验证名称
-                if (!name?.trim()) throw new Error('名称不能为空');
-                const trimmedName = name.trim();
-                if (trimmedName.length > 50) throw new Error('名称过长（最多50字符）');
-                if (!/^[\w\u4e00-\u9fa5\s\-_]+$/.test(trimmedName)) throw new Error('名称包含非法字符');
-                
-                const parent = this.findNode(parentId);
-                if (!parent) throw new Error('父节点不存在');
-                if (!parent.node.children) parent.node.children = [];
-                
-                // 修复：检查同级重名
-                if (parent.node.children.some(c => c.name === trimmedName)) throw new Error('该名称已存在');
-                
-                const newNode = {
-                    id: `lib_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                    name: trimmedName,
-                    type: type,
-                    created: Date.now(),
-                    children: type === 'folder' ? [] : undefined,
-                    words: type === 'library' ? [] : undefined
-                };
-                parent.node.children.push(newNode);
-                this.saveRoot(state.libraryRoot);
-                return newNode;
-            },
-            delete(id) {
-                const root = this.getRoot();
-                let deleted = false, deletedCurrent = false;
-                
-                // 修复：防止删除根节点
-                if (id === 'root') return {success: false, deletedCurrent: false, error: '不能删除根节点'};
-                if (id === 'default') return {success: false, deletedCurrent: false, error: '不能删除默认词库'};
-                
-                const removeFromParent = (parent, targetId) => {
-                    if (!parent.children) return false;
-                    const idx = parent.children.findIndex(c => c.id === targetId);
-                    if (idx >= 0) {
-                        const toDelete = parent.children[idx];
-                        
-                        // 修复：递归检查是否包含当前词库
-                        const checkCurrent = (node) => { 
-                            if (node.id === state.currentLibId) return true; 
-                            if (node.children) return node.children.some(checkCurrent); 
-                            return false; 
-                        };
-                        if (checkCurrent(toDelete)) deletedCurrent = true;
-                        
-                        // 修复：清理相关数据
-                        if (toDelete.words) {
-                            toDelete.words = []; // 先清空单词
-                        }
-                        
-                        parent.children.splice(idx, 1);
-                        deleted = true;
-                        return true;
-                    }
-                    for (let child of parent.children) if (removeFromParent(child, targetId)) return true;
-                    return false;
-                };
-                
-                removeFromParent(root, id);
-                if (deleted) {
-                    this.saveRoot(root);
-                    if (deletedCurrent) { 
-                        state.currentLibId = 'default'; 
-                        Storage.set(Storage.keys.current, 'default');
-                        // 修复：重置学习进度
-                        state.currentWordIndex = 0;
-                    }
-                }
-                return {success: deleted, deletedCurrent, error: deleted ? null : '未找到要删除的节点'};
-            },
-            rename(id, newName) {
-                if (!newName?.trim()) throw new Error('名称不能为空');
-                const trimmedName = newName.trim();
-                if (trimmedName.length > 50) throw new Error('名称过长');
-                if (!/^[\w\u4e00-\u9fa5\s\-_]+$/.test(trimmedName)) throw new Error('名称包含非法字符');
-                
-                const target = this.findNode(id);
-                if (!target) throw new Error('节点不存在');
-                
-                const parent = target.path[target.path.length - 1] || state.libraryRoot;
-                // 修复：检查同级重名
-                if (parent.children?.some(c => c.id !== id && c.name === trimmedName)) throw new Error('该名称已存在');
-                
-                target.node.name = trimmedName;
-                this.saveRoot(state.libraryRoot);
-                return true;
-            },
-            addWord(libId, word, def) {
-                const lib = this.findLibrary(libId);
-                if (!lib) throw new Error('词库不存在');
-                
-                // 修复：验证单词
-                const w = word.trim().toLowerCase();
-                if (!w) throw new Error('单词不能为空');
-                if (w.length > 100) throw new Error('单词过长（最多100字符）');
-                if (!/^[a-z0-9\s\-'_]+$/.test(w)) throw new Error('单词包含非法字符（仅允许字母、数字、空格、-、_、\'）');
-                
-                // 修复：检查重复（不区分大小写）
-                if (lib.node.words.some(item => item.w.toLowerCase() === w)) throw new Error('该单词已存在');
-                
-                const wordObj = { 
-                    w: w, 
-                    d: def?.trim() || '(未翻译)', 
-                    ts: Date.now(), 
-                    mastery: 0 
-                };
-                lib.node.words.push(wordObj);
-                this.saveRoot(state.libraryRoot);
-                if (state.currentLibId === libId) updateStudyView();
-                return wordObj;
-            },
-            deleteWord(libId, wordText) {
-                const lib = this.findLibrary(libId);
-                if (!lib) return false;
-                
-                // 修复：不区分大小写匹配
-                const idx = lib.node.words.findIndex(w => w.w.toLowerCase() === wordText.toLowerCase());
-                if (idx >= 0) {
-                    const deletedWord = lib.node.words[idx];
-                    lib.node.words.splice(idx, 1);
-                    this.saveRoot(state.libraryRoot);
-                    
-                    // 修复：如果删除的是当前学习的单词，调整索引
-                    if (state.currentLibId === libId) {
-                        const currentWord = lib.node.words[state.currentWordIndex];
-                        if (!currentWord || currentWord.w === deletedWord.w) {
-                            if (state.currentWordIndex >= lib.node.words.length) {
-                                state.currentWordIndex = Math.max(0, lib.node.words.length - 1);
-                            }
-                            updateStudyView();
-                        }
-                    }
-                    return true;
-                }
-                return false;
-            },
-            editWord(libId, oldWord, newWord, newDef) {
-                const lib = this.findLibrary(libId);
-                if (!lib) return false;
-                
-                const item = lib.node.words.find(w => w.w.toLowerCase() === oldWord.toLowerCase());
-                if (!item) return false;
-                
-                // 修复：验证新单词
-                const nw = newWord.trim().toLowerCase();
-                if (!nw) throw new Error('单词不能为空');
-                if (nw.length > 100) throw new Error('单词过长');
-                
-                // 修复：检查是否改成已存在的其他单词
-                if (nw !== oldWord.toLowerCase()) {
-                    const exists = lib.node.words.find(w => w.w.toLowerCase() === nw && w !== item);
-                    if (exists) throw new Error('该单词已存在');
-                }
-                
-                item.w = nw;
-                item.d = newDef.trim();
-                item.ts = Date.now();
-                this.saveRoot(state.libraryRoot);
-                if (state.currentLibId === libId) updateStudyView();
-                return true;
-            },
-            clear(libId) {
-                const lib = this.findLibrary(libId);
-                if (!lib) return false;
-                
-                // 修复：备份数据（用于可能的撤销）
-                const backup = [...lib.node.words];
-                try {
-                    lib.node.words = [];
-                    this.saveRoot(state.libraryRoot);
-                    if (state.currentLibId === libId) { 
-                        state.currentWordIndex = 0; 
-                        updateStudyView(); 
-                    }
-                    return true;
-                } catch(e) {
-                    // 恢复备份
-                    lib.node.words = backup;
-                    throw new Error('清空失败: ' + e.message);
-                }
-            },
-            exportLib(libId) {
-                const lib = this.findLibrary(libId);
-                if (!lib) return null;
-                return { 
-                    name: lib.node.name, 
-                    words: lib.node.words, 
-                    exportTime: new Date().toISOString(), 
-                    version: '1.0',
-                    app: 'WordMaster Pro'
-                };
-            }
-        };
+        // ==================== 修复后的完整 LibraryAPI ====================
+
+		const LibraryAPI = {
+			// 获取根节点（始终从localStorage读取最新数据）
+			getRoot() { 
+				const root = Storage.get(Storage.keys.root, initDefaultData());
+				// 修复：确保返回的是最新数据，并同步更新state
+				state.libraryRoot = root;
+				return root; 
+			},
+			
+			// 保存根节点到localStorage
+			saveRoot(root) { 
+				const success = Storage.set(Storage.keys.root, root); 
+				if (success) {
+					state.libraryRoot = root; 
+					// 修复：触发更新事件，让UI知道数据变化
+					window.dispatchEvent(new CustomEvent('libraryUpdated', { detail: { root } }));
+				}
+				return success; 
+			},
+			
+			// 查找节点（递归遍历树结构）
+			findNode(id, node = null, path = []) {
+				// 修复：确保从最新root开始查找
+				if (!node) node = this.getRoot();
+				if (node.id === id) return {node, path};
+				if (node.children && node.children.length > 0) {
+					for (let child of node.children) {
+						const result = this.findNode(id, child, [...path, node]);
+						if (result) return result;
+					}
+				}
+				return null;
+			},
+			
+			// 查找词库（类型必须是library）
+			findLibrary(id) {
+				const result = this.findNode(id);
+				if (result && result.node.type === 'library') return result;
+				return null;
+			},
+			
+			// 获取所有词库列表（递归遍历）
+			getAllLibraries(node = null, list = [], path = '') {
+				if (!node) node = this.getRoot();
+				
+				// 修复：正确处理根节点路径
+				const currentPath = path ? `${path} > ${node.name}` : node.name;
+				
+				// 只添加 library 类型的节点
+				if (node.type === 'library') {
+					list.push({
+						id: node.id, 
+						name: node.name, 
+						path: currentPath, 
+						count: node.words?.length || 0
+					});
+				}
+				
+				// 递归处理子节点
+				if (node.children && node.children.length > 0) {
+					node.children.forEach(child => {
+						this.getAllLibraries(child, list, currentPath);
+					});
+				}
+				
+				return list;
+			},
+			
+			// 创建新词库或文件夹
+			create(parentId, name, type = 'library') {
+				// 验证名称
+				if (!name?.trim()) throw new Error('名称不能为空');
+				const trimmedName = name.trim();
+				if (trimmedName.length > 50) throw new Error('名称过长（最多50字符）');
+				if (!/^[\w\u4e00-\u9fa5\s\-_]+$/.test(trimmedName)) {
+					throw new Error('名称包含非法字符');
+				}
+				
+				// 获取最新的 root
+				const root = this.getRoot();
+				const parent = this.findNode(parentId, root);
+				
+				if (!parent) throw new Error('父节点不存在');
+				if (!parent.node.children) parent.node.children = [];
+				
+				// 修复：更严格的重名检查（不区分大小写）
+				const nameLower = trimmedName.toLowerCase();
+				const exists = parent.node.children.some(c => 
+					c.name.toLowerCase() === nameLower
+				);
+				if (exists) throw new Error('该名称已存在');
+				
+				const newNode = {
+					id: `lib_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+					name: trimmedName,
+					type: type,
+					created: Date.now(),
+					children: type === 'folder' ? [] : undefined,
+					words: type === 'library' ? [] : undefined
+				};
+				
+				parent.node.children.push(newNode);
+				
+				// 修复：关键！保存时必须使用当前的 root，而不是 state.libraryRoot
+				const success = this.saveRoot(root);
+				if (!success) throw new Error('保存失败');
+				
+				return newNode;
+			},
+			
+			// 删除词库或文件夹
+			delete(id) {
+				const root = this.getRoot();
+				let deleted = false, deletedCurrent = false;
+				
+				// 保护根节点和默认词库
+				if (id === 'root') return {success: false, deletedCurrent: false, error: '不能删除根节点'};
+				if (id === 'default') return {success: false, deletedCurrent: false, error: '不能删除默认词库'};
+				
+				const removeFromParent = (parent, targetId) => {
+					if (!parent.children) return false;
+					
+					const idx = parent.children.findIndex(c => c.id === targetId);
+					if (idx >= 0) {
+						const toDelete = parent.children[idx];
+						
+						// 检查是否包含当前词库
+						const checkCurrent = (node) => { 
+							if (node.id === state.currentLibId) return true; 
+							if (node.children) return node.children.some(checkCurrent); 
+							return false; 
+						};
+						
+						if (checkCurrent(toDelete)) deletedCurrent = true;
+						
+						// 清理数据
+						if (toDelete.words) toDelete.words = [];
+						
+						parent.children.splice(idx, 1);
+						deleted = true;
+						return true;
+					}
+					
+					for (let child of parent.children) {
+						if (removeFromParent(child, targetId)) return true;
+					}
+					return false;
+				};
+				
+				removeFromParent(root, id);
+				
+				if (deleted) {
+					this.saveRoot(root);
+					if (deletedCurrent) { 
+						state.currentLibId = 'default'; 
+						Storage.set(Storage.keys.current, 'default');
+						state.currentWordIndex = 0;
+					}
+				}
+				
+				return {
+					success: deleted, 
+					deletedCurrent, 
+					error: deleted ? null : '未找到要删除的节点'
+				};
+			},
+			
+			// 重命名词库或文件夹
+			rename(id, newName) {
+				if (!newName?.trim()) throw new Error('名称不能为空');
+				const trimmedName = newName.trim();
+				if (trimmedName.length > 50) throw new Error('名称过长');
+				if (!/^[\w\u4e00-\u9fa5\s\-_]+$/.test(trimmedName)) {
+					throw new Error('名称包含非法字符');
+				}
+				
+				// 获取最新数据
+				const root = this.getRoot();
+				const target = this.findNode(id, root);
+				
+				if (!target) throw new Error('节点不存在');
+				
+				const parent = target.path[target.path.length - 1] || root;
+				
+				// 检查同级重名
+				const nameLower = trimmedName.toLowerCase();
+				const exists = parent.children?.some(c => 
+					c.id !== id && c.name.toLowerCase() === nameLower
+				);
+				if (exists) throw new Error('该名称已存在');
+				
+				target.node.name = trimmedName;
+				this.saveRoot(root);
+				return true;
+			},
+			
+			// 添加单词到词库
+			addWord(libId, word, def) {
+				// 获取最新数据
+				const root = this.getRoot();
+				const lib = this.findNode(libId, root);
+				
+				if (!lib) throw new Error('词库不存在');
+				
+				const w = word.trim().toLowerCase();
+				if (!w) throw new Error('单词不能为空');
+				if (w.length > 100) throw new Error('单词过长');
+				if (!/^[a-z0-9\s\-'_]+$/.test(w)) {
+					throw new Error('单词包含非法字符');
+				}
+				
+				// 检查重复
+				if (lib.node.words.some(item => item.w.toLowerCase() === w)) {
+					throw new Error('该单词已存在');
+				}
+				
+				const wordObj = { 
+					w: w, 
+					d: def?.trim() || '(未翻译)', 
+					ts: Date.now(), 
+					mastery: 0 
+				};
+				
+				lib.node.words.push(wordObj);
+				this.saveRoot(root);
+				
+				// 如果当前正在学习这个词库，更新视图
+				if (state.currentLibId === libId) {
+					updateStudyView();
+				}
+				
+				return wordObj;
+			},
+			
+			// 删除单词
+			deleteWord(libId, wordText) {
+				const root = this.getRoot();
+				const lib = this.findNode(libId, root);
+				
+				if (!lib) return false;
+				
+				const idx = lib.node.words.findIndex(
+					w => w.w.toLowerCase() === wordText.toLowerCase()
+				);
+				
+				if (idx >= 0) {
+					const deletedWord = lib.node.words[idx];
+					lib.node.words.splice(idx, 1);
+					this.saveRoot(root);
+					
+					// 调整当前学习索引
+					if (state.currentLibId === libId) {
+						const currentWord = lib.node.words[state.currentWordIndex];
+						if (!currentWord || currentWord.w === deletedWord.w) {
+							if (state.currentWordIndex >= lib.node.words.length) {
+								state.currentWordIndex = Math.max(0, lib.node.words.length - 1);
+							}
+							updateStudyView();
+						}
+					}
+					return true;
+				}
+				return false;
+			},
+			
+			// ✅ 修复：新增 editWord 方法（之前缺失！）
+			editWord(libId, oldWord, newWord, newDef) {
+				const root = this.getRoot();
+				const lib = this.findNode(libId, root);
+				
+				if (!lib) return false;
+				
+				const item = lib.node.words.find(w => w.w.toLowerCase() === oldWord.toLowerCase());
+				if (!item) return false;
+				
+				// 验证新单词
+				const nw = newWord.trim().toLowerCase();
+				if (!nw) throw new Error('单词不能为空');
+				if (nw.length > 100) throw new Error('单词过长');
+				
+				// 检查是否改成已存在的其他单词
+				if (nw !== oldWord.toLowerCase()) {
+					const exists = lib.node.words.find(w => w.w.toLowerCase() === nw && w !== item);
+					if (exists) throw new Error('该单词已存在');
+				}
+				
+				item.w = nw;
+				item.d = newDef.trim();
+				item.ts = Date.now();
+				this.saveRoot(root);
+				
+				if (state.currentLibId === libId) {
+					updateStudyView();
+				}
+				return true;
+			},
+			
+			// 清空词库
+			clear(libId) {
+				const root = this.getRoot();
+				const lib = this.findNode(libId, root);
+				
+				if (!lib) return false;
+				
+				const backup = [...lib.node.words];
+				try {
+					lib.node.words = [];
+					this.saveRoot(root);
+					
+					if (state.currentLibId === libId) { 
+						state.currentWordIndex = 0; 
+						updateStudyView(); 
+					}
+					return true;
+				} catch(e) {
+					lib.node.words = backup;
+					throw new Error('清空失败: ' + e.message);
+				}
+			},
+			
+			// ✅ 修复：新增 exportLib 方法（之前缺失！）
+			exportLib(libId) {
+				const lib = this.findLibrary(libId);
+				if (!lib) return null;
+				return { 
+					name: lib.node.name, 
+					words: lib.node.words, 
+					exportTime: new Date().toISOString(), 
+					version: '1.0',
+					app: 'WordMaster Pro'
+				};
+			}
+		};
 
         function initDefaultData() {
             return {
@@ -2516,34 +2624,53 @@
         // ==================== 原有功能函数 - 修复版 ====================
 
         function init() {
-            // 修复：清理旧测试数据
-            Storage.clearTestData();
-            
-            state.libraryRoot = LibraryAPI.getRoot();
-            state.currentLibId = Storage.get(Storage.keys.current, 'default');
-            state.settings = Storage.get(Storage.keys.settings, {autoTranslate: true, autoPlay: false});
-            state.stats = Storage.get(Storage.keys.stats, {mastered: 0, streak: 1, lastStudy: null});
-            
-            if (!LibraryAPI.findLibrary(state.currentLibId)) {
-                state.currentLibId = 'default';
-                Storage.set(Storage.keys.current, 'default');
-            }
-            
-            bindEvents();
-            updateStudyView();
-            initTypingPractice();
-            renderWordList();
-            updateCurrentLibDisplay();
-            
-            // 修复：检查并显示欢迎提示
-            const hasVisited = Storage.get('wm_visited');
-            if (!hasVisited) {
-                Storage.set('wm_visited', true);
-                setTimeout(() => {
-                    showToast('👋 欢迎使用 WordMaster Pro！点击 🧪 运行测试', 'success', 5000);
-                }, 1000);
-            }
-        }
+			// 清理旧测试数据
+			Storage.clearTestData();
+			
+			// 修复：确保正确初始化状态
+			const root = LibraryAPI.getRoot();
+			state.libraryRoot = root;
+			
+			// 验证当前词库ID是否有效
+			let currentId = Storage.get(Storage.keys.current, 'default');
+			if (!LibraryAPI.findLibrary(currentId)) {
+				currentId = 'default';
+				Storage.set(Storage.keys.current, 'default');
+			}
+			state.currentLibId = currentId;
+			
+			state.settings = Storage.get(Storage.keys.settings, {
+				autoTranslate: true, 
+				autoPlay: false
+			});
+			state.stats = Storage.get(Storage.keys.stats, {
+				mastered: 0, 
+				streak: 1, 
+				lastStudy: null
+			});
+			
+			bindEvents();
+			updateStudyView();
+			initTypingPractice();
+			renderWordList();
+			updateCurrentLibDisplay();
+			
+			// 首次访问提示
+			const hasVisited = Storage.get('wm_visited');
+			if (!hasVisited) {
+				Storage.set('wm_visited', true);
+				setTimeout(() => {
+					showToast('👋 欢迎使用 WordMaster Pro！', 'success', 3000);
+				}, 1000);
+			}
+			
+			// 修复：监听数据更新事件
+			window.addEventListener('libraryUpdated', (e) => {
+				state.libraryRoot = e.detail.root;
+				updateCurrentLibDisplay();
+			});
+		}
+
 
         function bindEvents() {
             // 全局键盘监听
@@ -3066,173 +3193,268 @@
                 showToast(e.message, 'error'); 
             }
         }
+		
+		// ==================== 修复后的词库选择器相关函数 ====================
 
-        function showLibSelector() {
-            const sel = document.getElementById('libSelector');
-            const list = document.getElementById('libTreeList');
-            const libs = LibraryAPI.getAllLibraries();
-            
-            if (libs.length === 0) {
-                list.innerHTML = '<div class="empty-state"><p>暂无词库</p></div>';
-            } else {
-                list.innerHTML = libs.map(lib => `
-                    <div onclick="selectLibrary('${lib.id}')" style="display: flex; align-items: center; padding: 12px; margin-bottom: 6px; border-radius: 10px; cursor: pointer; transition: all 0.2s; ${lib.id === state.currentLibId ? 'background: rgba(0,200,255,0.2); border: 1px solid rgba(0,200,255,0.4);' : 'background: rgba(255,255,255,0.05);'} touch-action: manipulation;">
-                        <div style="width: 32px; text-align: center; margin-right: 12px; font-size: 18px;">${lib.id === state.currentLibId ? '✓' : '📚'}</div>
-                        <div style="flex: 1; font-weight: 500; font-size: 14px;">${lib.name}</div>
-                        <div style="font-size: 11px; color: rgba(255,255,255,0.5);">${lib.count}词</div>
-                    </div>
-                `).join('');
-            }
-            
-            sel.classList.remove('hidden');
-            setTimeout(() => {
-                sel.classList.remove('opacity-0');
-                const box = document.getElementById('libSelectorBox');
-                box.classList.remove('scale-95');
-                box.classList.add('scale-100');
-            }, 10);
-        }
+		// 显示词库选择器
+		function showLibSelector() {
+			const sel = document.getElementById('libSelector');
+			const list = document.getElementById('libTreeList');
+			
+			// 强制刷新数据
+			const libs = LibraryAPI.getAllLibraries();
+			
+			if (libs.length === 0) {
+				list.innerHTML = `
+					<div class="empty-state">
+						<div class="empty-state-icon">📚</div>
+						<p>暂无词库</p>
+						<p style="font-size: 12px; margin-top: 8px;">点击下方按钮创建</p>
+					</div>
+				`;
+			} else {
+				// 确保当前词库高亮显示
+				list.innerHTML = libs.map(lib => `
+					<div onclick="selectLibrary('${lib.id}')" 
+						 style="display: flex; align-items: center; padding: 12px; margin-bottom: 6px; border-radius: 10px; cursor: pointer; transition: all 0.2s; ${lib.id === state.currentLibId ? 'background: rgba(0,200,255,0.2); border: 1px solid rgba(0,200,255,0.4);' : 'background: rgba(255,255,255,0.05);'} touch-action: manipulation;">
+						<div style="width: 32px; text-align: center; margin-right: 12px; font-size: 18px;">
+							${lib.id === state.currentLibId ? '✓' : (lib.id === 'default' ? '🏠' : '📚')}
+						</div>
+						<div style="flex: 1;">
+							<div style="font-weight: 500; font-size: 14px;">${lib.name}</div>
+							<div style="font-size: 11px; color: rgba(255,255,255,0.5);">${lib.path}</div>
+						</div>
+						<div style="font-size: 11px; color: rgba(255,255,255,0.5); background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 10px;">${lib.count}词</div>
+					</div>
+				`).join('');
+			}
+			
+			// 修复：移除 hidden 类，显示元素
+			sel.classList.remove('hidden');
+			
+			// 强制重绘，确保过渡动画生效
+			void sel.offsetWidth;
+			
+			// 添加激活状态（触发动画）
+			requestAnimationFrame(() => {
+				sel.classList.remove('opacity-0');
+				sel.style.opacity = '1';
+				
+				const box = document.getElementById('libSelectorBox');
+				if (box) {
+					box.style.transform = 'scale(1)';
+				}
+			});
+		}
 
-        function hideLibSelector() {
-            const sel = document.getElementById('libSelector');
-            sel.classList.add('opacity-0');
-            const box = document.getElementById('libSelectorBox');
-            box.classList.remove('scale-100');
-            box.classList.add('scale-95');
-            setTimeout(() => sel.classList.add('hidden'), 300);
-        }
+		// 隐藏词库选择器 - 修复版
+		function hideLibSelector() {
+			const sel = document.getElementById('libSelector');
+			const box = document.getElementById('libSelectorBox');
+			
+			// 修复：添加淡出动画
+			sel.classList.add('opacity-0');
+			sel.style.opacity = '0';
+			
+			if (box) {
+				box.style.transform = 'scale(0.95)';
+			}
+			
+			// 修复：等待动画完成后才添加 hidden 类
+			setTimeout(() => {
+				sel.classList.add('hidden');
+				// 重置样式，为下次显示做准备
+				sel.style.opacity = '';
+				if (box) {
+					box.style.transform = '';
+				}
+			}, 300); // 与 CSS transition 时间匹配
+		}
 
-        function selectLibrary(id) {
-            state.currentLibId = id;
-            Storage.set(Storage.keys.current, id);
-            hideLibSelector();
-            updateCurrentLibDisplay();
-            renderWordList();
-            updateStudyView();
-            initTypingPractice();
-            showToast('已切换词库', 'success');
-        }
+		// 选择词库
+		function selectLibrary(id) {
+			// 保存旧ID用于比较
+			const oldId = state.currentLibId;
+			
+			// 更新当前词库ID
+			state.currentLibId = id;
+			Storage.set(Storage.keys.current, id);
+			
+			// 重置学习索引
+			state.currentWordIndex = 0;
+			
+			// 隐藏选择器
+			hideLibSelector();
+			
+			// 更新所有相关UI
+			updateCurrentLibDisplay();
+			renderWordList();
+			updateStudyView();
+			initTypingPractice();
+			
+			// 显示切换提示
+			const lib = LibraryAPI.findLibrary(id);
+			if (lib) {
+				showToast(`已切换到: ${lib.node.name}`, 'success');
+			}
+			
+			// 如果切换了词库，刷新单词列表标签
+			if (oldId !== id) {
+				switchLibTab('words');
+			}
+		}
 
-        function createNewLibrary() {
-            const name = prompt('新词库名称：');
-            if (!name?.trim()) return;
-            
-            // 修复：验证名称
-            if (name.length > 50) {
-                showToast('名称过长（最多50字符）', 'error');
-                return;
-            }
-            
-            try {
-                const newLib = LibraryAPI.create('root', name.trim(), 'library');
-                showToast('✓ 创建成功', 'success');
-                
-                // 修复：自动切换选项
-                setTimeout(() => {
-                    if (confirm(`"${name}" 创建成功，是否立即切换？`)) {
-                        selectLibrary(newLib.id);
-                    } else {
-                        hideLibSelector();
-                        showLibSelector(); // 刷新列表
-                    }
-                }, 100);
-            } catch(e) { 
-                showToast(e.message, 'error'); 
-            }
-        }
+		// 创建新词库
+		function createNewLibrary() {
+			const name = prompt('新词库名称：');
+			if (!name?.trim()) return;
+			
+			if (name.length > 50) {
+				showToast('名称过长（最多50字符）', 'error');
+				return;
+			}
+			
+			try {
+				// 确保使用最新的 root 创建
+				const newLib = LibraryAPI.create('root', name.trim(), 'library');
+				
+				showToast('✓ 创建成功: ' + newLib.name, 'success');
+				
+				// 修复：立即刷新选择器，不依赖 setTimeout
+				showLibSelector();
+				
+				// 询问是否切换
+				setTimeout(() => {
+					showConfirmDialog(
+						`是否立即切换到新词库 "${newLib.name}"？`,
+						() => selectLibrary(newLib.id),
+						'切换词库'
+					);
+				}, 100);
+				
+			} catch(e) { 
+				showToast(e.message, 'error'); 
+			}
+		}
 
-        function renameCurrentLibrary() {
-            const lib = LibraryAPI.findLibrary(state.currentLibId);
-            if (!lib) return;
-            
-            // 修复：不能重命名默认词库
-            if (state.currentLibId === 'default') {
-                showToast('默认词库不能重命名', 'warning');
-                return;
-            }
-            
-            const name = prompt('新名称：', lib.node.name);
-            if (!name?.trim()) return;
-            
-            try {
-                LibraryAPI.rename(state.currentLibId, name.trim());
-                updateCurrentLibDisplay();
-                showToast('✓ 重命名成功', 'success');
-            } catch(e) { 
-                showToast(e.message, 'error'); 
-            }
-        }
+		// 重命名当前词库
+		function renameCurrentLibrary() {
+			const lib = LibraryAPI.findLibrary(state.currentLibId);
+			if (!lib) {
+				showToast('词库不存在', 'error');
+				return;
+			}
+			
+			// 不能重命名默认词库
+			if (state.currentLibId === 'default') {
+				showToast('默认词库不能重命名', 'warning');
+				return;
+			}
+			
+			const name = prompt('新名称：', lib.node.name);
+			if (!name?.trim()) return;
+			
+			try {
+				LibraryAPI.rename(state.currentLibId, name.trim());
+				updateCurrentLibDisplay();
+				showToast('✓ 重命名成功', 'success');
+				
+				// 如果词库选择器是打开的，刷新它
+				const sel = document.getElementById('libSelector');
+				if (!sel.classList.contains('hidden')) {
+					showLibSelector();
+				}
+			} catch(e) { 
+				showToast(e.message, 'error'); 
+			}
+		}
 
-        function clearCurrentLibrary() {
-            const lib = LibraryAPI.findLibrary(state.currentLibId);
-            if (!lib?.node.words?.length) { 
-                showToast('词库已是空的', 'info'); 
-                return; 
-            }
-            
-            // 修复：使用确认对话框
-            showConfirmDialog(
-                `确定要清空 "${lib.node.name}" 中的 ${lib.node.words.length} 个单词吗？此操作不可恢复！`,
-                () => {
-                    if (LibraryAPI.clear(state.currentLibId)) {
-                        showToast('已清空', 'success');
-                        renderWordList();
-                        updateCurrentLibDisplay();
-                        updateStudyView();
-                    }
-                },
-                '清空词库'
-            );
-        }
+		// 清空当前词库
+		function clearCurrentLibrary() {
+			const lib = LibraryAPI.findLibrary(state.currentLibId);
+			if (!lib?.node.words?.length) { 
+				showToast('词库已是空的', 'info'); 
+				return; 
+			}
+			
+			showConfirmDialog(
+				`确定要清空 "${lib.node.name}" 中的 ${lib.node.words.length} 个单词吗？此操作不可恢复！`,
+				() => {
+					if (LibraryAPI.clear(state.currentLibId)) {
+						showToast('已清空', 'success');
+						renderWordList();
+						updateCurrentLibDisplay();
+						updateStudyView();
+					}
+				},
+				'清空词库'
+			);
+		}
 
-        function deleteCurrentLibrary() {
-            if (state.currentLibId === 'default') { 
-                showToast('不能删除默认词库', 'error'); 
-                return; 
-            }
-            
-            const lib = LibraryAPI.findLibrary(state.currentLibId);
-            if (!lib) return;
-            
-            // 修复：使用确认对话框
-            showConfirmDialog(
-                `确定要删除词库 "${lib.node.name}" 吗？其中的 ${lib.node.words.length || 0} 个单词也将被删除！`,
-                () => {
-                    const result = LibraryAPI.delete(state.currentLibId);
-                    if (result.success) {
-                        showToast('已删除', 'success');
-                        if (result.deletedCurrent) {
-                            selectLibrary('default');
-                        }
-                    } else {
-                        showToast(result.error || '删除失败', 'error');
-                    }
-                },
-                '删除词库'
-            );
-        }
+		// 删除当前词库
+		function deleteCurrentLibrary() {
+			if (state.currentLibId === 'default') { 
+				showToast('不能删除默认词库', 'error'); 
+				return; 
+			}
+			
+			// 重新获取最新数据
+			const lib = LibraryAPI.findLibrary(state.currentLibId);
+			if (!lib) {
+				showToast('词库不存在或已被删除', 'error');
+				state.currentLibId = 'default';
+				Storage.set(Storage.keys.current, 'default');
+				updateCurrentLibDisplay();
+				return;
+			}
+			
+			showConfirmDialog(
+				`确定要删除词库 "${lib.node.name}" 吗？其中的 ${lib.node.words.length || 0} 个单词也将被删除！`,
+				() => {
+					const result = LibraryAPI.delete(state.currentLibId);
+					if (result.success) {
+						showToast('已删除', 'success');
+						
+						// 强制刷新所有相关UI
+						if (result.deletedCurrent) {
+							selectLibrary('default');
+						} else {
+							updateCurrentLibDisplay();
+							renderWordList();
+						}
+						
+						// 确保选择器关闭
+						hideLibSelector();
+					} else {
+						showToast(result.error || '删除失败', 'error');
+					}
+				},
+				'删除词库'
+			);
+		}
 
-        function exportCurrentLibrary() {
-            const data = LibraryAPI.exportLib(state.currentLibId);
-            if (!data) { 
-                showToast('导出失败', 'error'); 
-                return; 
-            }
-            
-            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${data.name}_export_${new Date().toISOString().slice(0,10)}.json`;
-            
-            // 修复：确保下载触发
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            
-            URL.revokeObjectURL(url);
-            showToast('✓ 导出成功', 'success');
-        }
+		// 导出当前词库
+		function exportCurrentLibrary() {
+			const data = LibraryAPI.exportLib(state.currentLibId);
+			if (!data) { 
+				showToast('导出失败', 'error'); 
+				return; 
+			}
+			
+			const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `${data.name}_export_${new Date().toISOString().slice(0,10)}.json`;
+			
+			// 确保下载触发
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			
+			URL.revokeObjectURL(url);
+			showToast('✓ 导出成功', 'success');
+		}
 
         function updateCurrentLibDisplay() {
             const lib = LibraryAPI.findLibrary(state.currentLibId);
